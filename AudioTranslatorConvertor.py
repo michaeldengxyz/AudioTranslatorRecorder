@@ -55,11 +55,9 @@ if WindX['convert_engine'] == 1:
     WindX['AudioToText_to_language'] = 1537 #1537 普通话(纯中文识别), 1737 英语
     if len(sys.argv) >1 and sys.argv[1] and sys.argv[1] in ['1737', '1537']:
         WindX['AudioToText_to_language'] = UT_Str2Int(sys.argv[1])
-
     print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'], "(1537 普通话(纯中文识别), 1737 英语)")
 elif len(sys.argv) >1 and sys.argv[1]:
     WindX['AudioToText_to_language'] = re.sub(r'___', ' ', str(sys.argv[1]))
-
     print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'])
 
 WindX['audio_file_format'] = 'wav'
@@ -260,17 +258,18 @@ def AudioToText_AzureAI(filepath, audio_language='zh-CN', translate_to="", optVa
                     res_err = "Error details: {}".format(cancellation_details.error_details)
                     print("\n#AC#",  sys._getframe().f_lineno,"Did you set the speech resource key and region values?")
 
+
             if res_err:
                 if action == 1:
                     UT_FileSave(res_err, filepath + '.err', format="strings")
                     #if ResultReason_NoMatch: #not really good to get a right return!
                     #    AudioToText_AzureAI(filepath, audio_language= translate_to, translate_to=translate_to, optVals=optVals, action=2)
             else:
-                UT_FileSave(res_text, filepath + '.txt', format="strings")
+                UT_FileSave("[3." + str(audio_language).upper() + "] " + res_text, filepath + '.txt', format="strings")
                 if res_text:
                     res_trans = Translate_AzureAI(res_text, audio_language, translate_to, optVals)
                     if len(res_trans):
-                        UT_FileSave(" ".join(res_trans), filepath + '.translated', format="strings")                
+                        UT_FileSave("[3." + str(translate_to).upper() + "] " + " ".join(res_trans), filepath + '.translated', format="strings")                
                 
         except:
             print("\n#AC#",  sys._getframe().f_lineno,"\n",traceback.format_exc())
@@ -340,6 +339,21 @@ def Translate_AzureAI(instring, from_lang, to_lang, optVals={}):
 
 def AudioToText_Baidu(filepath, audio_language='1537',translate_to="", optVals={}):
     try:
+        print("\n#AC#",  sys._getframe().f_lineno, 
+            "baidu_app_id=", optVals['audio2text_baidu_app_id'], 
+            ", baidu_api_key=", optVals['audio2text_baidu_api_key'], 
+            ", api_secret_key=", optVals['audio2text_baidu_api_secret_key'], 
+            ", audio_language=", audio_language,
+            ", translate_to=", translate_to
+        )
+
+        #1537 普通话(纯中文识别), 1737 英语)
+        audio_languageX = str(audio_language)
+        if str(audio_language) == '1737':
+            audio_languageX = "1737-EN"
+        elif str(audio_language) == '1537':
+            audio_languageX = "1537-ZH"
+
         if not WindX['baidu_api_client']:
             api_connect(optVals)
     
@@ -382,7 +396,7 @@ def AudioToText_Baidu(filepath, audio_language='1537',translate_to="", optVals={
             if result and result.__contains__('result') and len(result['result']) and re.match(r'.*success', result['err_msg'], re.I):
                 t = "".join(result['result'])
                 if len(t):
-                    UT_FileSave(",\n".join(result['result']), filepath + '.txt', format="strings")
+                    UT_FileSave("[1." + audio_languageX + "] " + "\n".join(result['result']), filepath + '.txt', format="strings")
                     if translate_to:
                         Translate_Baidu(",\n".join(result['result']), audio_language, translate_to, filepath, optVals=optVals)
                 else:
@@ -459,7 +473,7 @@ def Translate_Baidu(query, audio_language, translate_to, filepath, optVals={}):
 
     if filepath and result and result.__contains__("trans_result") and  len(result["trans_result"]) and result["trans_result"][0]["dst"]:
         #print("#AC#",  sys._getframe().f_lineno,result["trans_result"][0]["dst"])
-        UT_FileSave(result["trans_result"][0]["dst"], filepath + '.translated', format="strings")
+        UT_FileSave("[1." + str(to_lang).upper() + "] " + result["trans_result"][0]["dst"], filepath + '.translated', format="strings")
     elif result.__contains__("trans_result") and  len(result["trans_result"]) and result["trans_result"][0]["dst"]:
         return result["trans_result"][0]["dst"]
     else:

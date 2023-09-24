@@ -84,11 +84,11 @@ WindX['last_ss_values'] = {}
 def GUI_Init():
     WindXX['WatchingOptions_opts'] = {
         'ui_language' : ['selectbox', 'CN - 简体中文', GUI_LANG(1), GUI_LANG(1), ['EN - English', 'CN - 简体中文']], 
-        'convert_to_language' : ['selectbox', '1537 - ' + GUI_LANG(2), GUI_LANG(3),GUI_LANG(3), ['1737 - English', '1537 - '  + GUI_LANG(2)]], 
-        'convert_engine' : ['selectbox', '1 - Baidu', GUI_LANG(4), GUI_LANG(4), ['1 - Baidu', '2 - Google', '3 - Microsoft Azure AI','4 - ' + GUI_LANG(5)]],
-        'translate_to'   : ['selectbox', 'Simplified Chinese', GUI_LANG(6), GUI_LANG(6), ['Simplified Chinese', 'English', '']], 
+        'convert_to_language' : ['selectbox', '1537 - ' + GUI_LANG(2), GUI_LANG(3),GUI_LANG(3), ['1737 - '+ GUI_LANG(109), '1537 - '  + GUI_LANG(2)]], 
+        'convert_engine' : ['selectbox', '1 - ' + GUI_LANG(103), GUI_LANG(4), GUI_LANG(4), ['1 - ' + GUI_LANG(103), '2 - ' + GUI_LANG(104), '3 - ' + GUI_LANG(105),'4 - ' + GUI_LANG(5)]],
+        'translate_to'   : ['selectbox', GUI_LANG(108), GUI_LANG(6), GUI_LANG(6), [GUI_LANG(108), GUI_LANG(109), '']], 
         'frames_per_buffer' : ['selectbox', 1024, GUI_LANG(7),GUI_LANG(8), [256, 512, 1024, 2048, 4896]], 
-        'channels' : ['selectbox','1 - mono', GUI_LANG(9), GUI_LANG(10), ['1 - mono', '2 - stereo']], 
+        'channels' : ['selectbox','1 - '+ GUI_LANG(106), GUI_LANG(9), GUI_LANG(10), ['1 - '+ GUI_LANG(106), '2 - '+ GUI_LANG(107)]], 
         'format' : ['selectbox', 16, GUI_LANG(11), GUI_LANG(12), [8, 16, 24, 32]],   #pyaudio.paInt16, .paInt8, .paInt16, .paInt24, .paInt32
         'rate' : ['selectbox', 16000, GUI_LANG(13), GUI_LANG(14), [8000, 16000, 32000, 48000, 96000]],
 
@@ -218,7 +218,14 @@ def GUI_LANG_STD():
         "99": "My Accounts",
         "100":"Click to show / hide options",
         "101":"Click to open the link",
-        "102":"pause ... ..."
+        "102":"pause ... ...",
+        "103":"Baidu",
+	    "104":"Google",
+	    "105":"Microsoft Azure AI",
+        "106":"mono",
+	    "107":"stereo",
+        "108":"Simplified Chinese",
+	    "109":"English"
     }
     
     return lang_std
@@ -315,6 +322,7 @@ def GUI():
         psw_lbl = Label(WindX['Frame1'], text=GUI_LANG(86), justify=CENTER, relief=FLAT,pady=key_button_pady, padx=3, fg='red')
         psw_lbl.grid(row=row,column=col,sticky=E+W+N+S,pady=1,padx=0)
         psw_lbl.bind('<Button>',   func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=psw_lbl,ishow='close'))
+        UI_WidgetBalloon(psw_lbl,  GUI_LANG(84))  
         
         col+=1
         WindXX['WatchingOptions_Vars']['ui_language'] = StringVar()
@@ -627,8 +635,8 @@ def UI_ConvertEngineChange(ev=None):
     
     avl = {
         '1':{
-            'convert_to':  ['1737 - English', '1537 - '  + GUI_LANG(2)],
-            'translate_to':['Simplified Chinese', 'English', '']
+            'convert_to':  ['1737 - ' + GUI_LANG(109), '1537 - '  + GUI_LANG(2)],
+            'translate_to':[GUI_LANG(108), GUI_LANG(109), '']
         },
 
         '3':{
@@ -1900,11 +1908,13 @@ class recordAudio:
                 tstr = history_row_data["audio2text"]
                 audio2text = history_row_data["audio2text"]
                 if len(tstr) and len(history_row_data["translation"]):
-                    tstr = tstr + "\n[T] " + history_row_data["translation"]
+                    tstr = tstr + "\n" + history_row_data["translation"]
                     translation = history_row_data["translation"]
                 text.insert('0.0', tstr)
 
                 if re.match(r'^\[Error\!\]\s+', history_row_data["audio2text"], re.I):
+                    text.config(fg="red")
+                elif re.match(r'^\[Warning\!\]\s+', history_row_data["audio2text"], re.I):
                     text.config(fg="yellow")
 
             if not self.go_to_page:
@@ -1983,6 +1993,14 @@ class recordAudio:
                                     else:
                                         WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = " "
 
+                                elif os.path.exists(filepath) and os.path.exists(filepath + '.warn'):
+                                    t = UT_FileOpen(filepath + '.warn', format='string')                            
+                                    if len(t):
+                                        k += 1                                        
+                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = "[Warning!] " + t                                        
+                                    else:
+                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = " "
+
                             if not len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']):
                                 if os.path.exists(filepath) and os.path.exists(filepath + '.translated'):
                                     tt = UT_FileOpen(filepath + '.translated', format='string')
@@ -2003,10 +2021,12 @@ class recordAudio:
                             if k and len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text']):
                                 t = WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text']
                                 if re.match(r'^\[Error\!\]\s+', t, re.I):
+                                    WindX['frame_visualize_cur_page'][row][2].config(fg="red")
+                                elif re.match(r'^\[Warning\!\]\s+', t, re.I):
                                     WindX['frame_visualize_cur_page'][row][2].config(fg="yellow")
 
                                 if len(t) and len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']):
-                                    t = t + "\n[T] " + WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']    
+                                    t = t + "\n" + WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']    
                                     WindX['frame_visualize_cur_page_done'][fileID] = True                  
                                 n+=1
                                 WindX['frame_visualize_cur_page'][row][2].delete('0.0',"end")
