@@ -2029,8 +2029,11 @@ class recordAudio:
                                     t = t + "\n" + WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']    
                                     WindX['frame_visualize_cur_page_done'][fileID] = True                  
                                 n+=1
-                                WindX['frame_visualize_cur_page'][row][2].delete('0.0',"end")
-                                WindX['frame_visualize_cur_page'][row][2].insert('0.0', t)
+                                try:
+                                    WindX['frame_visualize_cur_page'][row][2].delete('0.0',"end")
+                                    WindX['frame_visualize_cur_page'][row][2].insert('0.0', t)
+                                except:
+                                    pass
                         except:
                             print(sys._getframe().f_lineno,traceback.format_exc())
                     
