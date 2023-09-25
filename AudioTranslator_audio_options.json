@@ -3,8 +3,8 @@
         "ui_language": [
             "selectbox",
             "CN - \u7b80\u4f53\u4e2d\u6587",
-            "\u754c\u9762\u663e\u793a\u8bed\u8a00",
-            "\u754c\u9762\u663e\u793a\u8bed\u8a00",
+            "\u754c\u9762\u8bed\u8a00",
+            "\u754c\u9762\u8bed\u8a00",
             [
                 "EN - English",
                 "CN - \u7b80\u4f53\u4e2d\u6587"
@@ -28,8 +28,8 @@
             [
                 "1 - \u767e\u5ea6",
                 "2 - \u8c37\u6b4c",
-                "3 - \u5fae\u8f6fAzure AI",
-                "4 - \u4e0d\u8f6c\u6362"
+                "3 - \u5fae\u8f6f",
+                "4 - \u4e0d\u8f6c\u6362 - \u53ea\u5f55\u97f3"
             ]
         ],
         "translate_to": [
@@ -115,23 +115,35 @@
             "\u97f3\u9891 - \u76d1\u6d4b\u95f4\u9694",
             "\u5982\u679c\u6ca1\u6709\u4fe1\u53f7\u8f93\u5165, \u6bcf\u79d2\u68c0\u67e5X\u6b21"
         ],
+        "audio_section_max_length": [
+            "entry",
+            25,
+            "\u97f3\u9891 - \u7247\u6bb5\u6700\u957f\u4e3a",
+            "\u79d2, \u56e0\u4e3a\u8bed\u97f3\u8f6c\u6587\u672c\u6709\u65f6\u95f4\u957f\u5ea6\u9650\u5236, \u97f3\u9891\u7247\u6bb5\u4e0d\u80fd\u592a\u957f, \u4e00\u822c\u4e0d\u8d85\u8fc730\u79d2!"
+        ],
         "audio_visualization_interval": [
             "entry",
             5,
-            "\u53ef\u89c6\u5316\u95f4\u9694",
+            "\u53ef\u89c6\u5316 - \u95f4\u9694",
             "\u5237\u65b0\u97f3\u9891\u53ef\u89c6\u5316, \u4e3a\u6bcf\u4e2a\u7f13\u51b2\u533a\u7684\u97f3\u9891\u5e27\u6570\u7684X\u500d"
         ],
         "audio_visualization_signal_enhance": [
             "entry",
             1.5,
-            "\u53ef\u89c6\u5316\u4fe1\u53f7\u589e\u5f3a",
+            "\u53ef\u89c6\u5316 - \u4fe1\u53f7\u589e\u5f3a",
             "\u53ef\u89c6\u5316\u4fe1\u53f7\u589e\u5f3a\uff0c"
         ],
         "audio_visualization_num_per_page": [
             "entry",
             10,
-            "\u53ef\u89c6\u5316\u5355\u9875\u97f3\u9891\u6bb5\u6570",
+            "\u53ef\u89c6\u5316 - \u5355\u9875\u97f3\u9891\u6bb5\u6570",
             "\u5728\u6bcf\u9875\u4e0a\u663e\u793a\u7684\u97f3\u9891\u6bb5\u6570"
+        ],
+        "audio_visualization_line_color": [
+            "entry",
+            "red",
+            "\u53ef\u89c6\u5316 - \u7ebf\u6bb5\u989c\u8272",
+            "\u53ef\u89c6\u5316\u7ebf\u6bb5\u989c\u8272: \u989c\u8272\u540d\u79f0, \u6216\u800516\u8fdb\u5236\u683c\u5f0f (\u4f8b\u5982#FFFFFF), \n\u4f46\u5c06\u4f18\u5148\u4f7f\u7528\u5176\u8bbe\u5907\u6307\u5b9a\u7684\u989c\u8272\u3002"
         ],
         "translate_baidu_app_id": [
             "entry",
@@ -199,9 +211,9 @@
     },
     "custom": {
         "ui_language": "CN - \u7b80\u4f53\u4e2d\u6587",
-        "convert_engine": "3 - \u5fae\u8f6fAzure AI",
-        "convert_to_language": "zh-CN \u4e2d\u6587\uff08\u666e\u901a\u8bdd\uff0c\u7b80\u4f53\uff09",
-        "translate_to": "ja \u65e5\u8bed",
+        "convert_engine": "1 - \u767e\u5ea6",
+        "convert_to_language": "1537 - \u7b80\u4f53\u4e2d\u6587",
+        "translate_to": "\u82f1\u8bed (English)",
         "frames_per_buffer": "1024",
         "channels": "1 - mono",
         "format": 16,
@@ -210,9 +222,11 @@
         "audioop_rms_threshold": "100",
         "break_points": "5",
         "audio_frame_rate": "200",
+        "audio_section_max_length": "15",
         "audio_visualization_interval": "5",
         "audio_visualization_signal_enhance": "1.5",
         "audio_visualization_num_per_page": "7",
+        "audio_visualization_line_color": "green",
         "translate_baidu_app_id": "",
         "translate_baidu_app_key": "",
         "translate_azure_app_key": "",

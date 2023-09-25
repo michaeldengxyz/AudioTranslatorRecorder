@@ -234,6 +234,7 @@ def AudioToText_AzureAI(filepath, audio_language='zh-CN', translate_to="", optVa
             # For long-running multi-utterance recognition, use start_continuous_recognition() instead.
             result = speech_recognizer.recognize_once_async().get()
             res_text = ""
+            res_warn  = ""
             res_err  = ""
             print("\n#AC#",  sys._getframe().f_lineno,"speech_recognizer.recognize_once_async().get(): {}".format(result))
 
@@ -247,7 +248,7 @@ def AudioToText_AzureAI(filepath, audio_language='zh-CN', translate_to="", optVa
                 res_text = result.text
             elif result.reason == speechsdk.ResultReason.NoMatch:
                 print("\n#AC#",  sys._getframe().f_lineno,"No speech could be recognized: {}".format(result.no_match_details))
-                res_err  = "No speech could be recognized: {}".format(result.no_match_details)
+                res_warn  = "No speech could be recognized: {}".format(result.no_match_details)
                 ResultReason_NoMatch = True
             elif result.reason == speechsdk.ResultReason.Canceled:
                 cancellation_details = result.cancellation_details
@@ -264,6 +265,9 @@ def AudioToText_AzureAI(filepath, audio_language='zh-CN', translate_to="", optVa
                     UT_FileSave(res_err, filepath + '.err', format="strings")
                     #if ResultReason_NoMatch: #not really good to get a right return!
                     #    AudioToText_AzureAI(filepath, audio_language= translate_to, translate_to=translate_to, optVals=optVals, action=2)
+            elif res_warn:
+                UT_FileSave(res_warn, filepath + '.warn', format="strings")
+
             else:
                 UT_FileSave("[3." + str(audio_language).upper() + "] " + res_text, filepath + '.txt', format="strings")
                 if res_text:
@@ -542,12 +546,17 @@ def AudioCheckFiles():
                         
                         if not convert_engine == 1:
                             audio_language = re.split(r'\s+', str(audio_language))[0]
+                            audio_language = UT_Str2Int(audio_language)
                             #print("#AC#",  sys._getframe().f_lineno, "audio_language=", audio_language)
 
                         for fmpx in sorted(glob.glob("*." + audio_file_format)):                            
                             if not (os.path.exists(fmpx + '.txt.done') or os.path.exists(fmpx + '.txt') or os.path.exists(fmpx + '.err') or os.path.exists(fmpx + '.warn')):
                                 #print("#AC#",  sys._getframe().f_lineno,"\t", fmpx)
-                                AudioToText(filepath=fmpx, audio_language=audio_language, convert_engine=convert_engine, translate_to=translate_to, optVals=vals['custom'])    
+                                if convert_engine == 4:
+                                    print("#AC#",  sys._getframe().f_lineno, "convert_engine=", convert_engine, " - not convert!")
+                                    UT_FileSave('This audio is not required to be converted to text!', fmpx + '.warn', format="strings")
+                                else:
+                                    AudioToText(filepath=fmpx, audio_language=audio_language, convert_engine=convert_engine, translate_to=translate_to, optVals=vals['custom'])    
         except:
             print("#AC#",  sys._getframe().f_lineno, traceback.format_exc())
 

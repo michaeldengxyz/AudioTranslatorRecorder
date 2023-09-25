@@ -281,6 +281,16 @@ def UT_Str2Int(s):
     else:
         return 0
 
+def UT_GetColors(istart=16711680, n=10):
+    colors = []
+    a = np.linspace(istart,255,n)
+    #UT_Print2Log('', sys._getframe().f_lineno, a)
+    for i in a:
+        c = int(i)
+        colors.append('#%06x'%c)
+    #UT_Print2Log('', sys._getframe().f_lineno, colors)
+    return colors
+
 def GetColorsHex(n):
     cs = GetColorsRGB(n)
     csx = []

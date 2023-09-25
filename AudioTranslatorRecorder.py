@@ -40,7 +40,7 @@ app_ui_languages = WindX['self_folder'] + '/AudioTranslator_ui_languages.json'
 #print(sys._getframe().f_lineno,"\n", os.path.dirname(app_ui_languages))
 #print(sys._getframe().f_lineno,os.path.basename(app_ui_languages), "\n")
 
-WindX['main_rev'] = '1.2'
+WindX['main_rev'] = '1.3'
 WindX['main'] = None
 WindX['mainPX'] = 20
 WindX['mainPY'] = 20 
@@ -80,8 +80,11 @@ WindXX['UI_LANG'] = None
 WindXX['UI_LANG_SEL'] = "CN"
 WindX['EncryptCode_current'] = ""
 WindX['last_ss_values'] = {}
+WindX['win_main_background'] = "#303030"
 
 def GUI_Init():
+    WindX['win_main_background'] = "#303030"
+    
     WindXX['WatchingOptions_opts'] = {
         'ui_language' : ['selectbox', 'CN - 简体中文', GUI_LANG(1), GUI_LANG(1), ['EN - English', 'CN - 简体中文']], 
         'convert_to_language' : ['selectbox', '1537 - ' + GUI_LANG(2), GUI_LANG(3),GUI_LANG(3), ['1737 - '+ GUI_LANG(109), '1537 - '  + GUI_LANG(2)]], 
@@ -96,10 +99,12 @@ def GUI_Init():
         'audioop_rms_threshold': ['entry', 100, GUI_LANG(17), GUI_LANG(18)], 
         'break_points' : ['entry', 5, GUI_LANG(19), GUI_LANG(20)],  
         'audio_frame_rate' : ['entry', 200, GUI_LANG(21), GUI_LANG(22)], 
+        'audio_section_max_length': ['entry', 25, GUI_LANG(110), GUI_LANG(111)], 
 
         'audio_visualization_interval' : ['entry', 5, GUI_LANG(23), GUI_LANG(24)],
         'audio_visualization_signal_enhance' : ['entry', 1.5, GUI_LANG(25), GUI_LANG(26)],
         'audio_visualization_num_per_page' : ['entry', 10, GUI_LANG(82), GUI_LANG(83)],
+        'audio_visualization_line_color' : ['entry', 'red', GUI_LANG(112), GUI_LANG(113)],
 
         'translate_baidu_app_id' :  ['entry', '', GUI_LANG(27), GUI_LANG(28), 'encrypt'],
         'translate_baidu_app_key' : ['entry', '', GUI_LANG(29), GUI_LANG(30), 'encrypt'],
@@ -121,7 +126,7 @@ def GUI_LANG_STD():
         '2': "Simplified Chinese",
         '3': "Audio Language",
         '4': "Audio Engine",
-        '5': "Not Convert",
+        '5': "Not Convert - record only",
         '6': "Translate To",
         '7': "Audio samples per buffer",
         '8': "Specifies the number of samples per buffer",
@@ -157,7 +162,7 @@ def GUI_LANG_STD():
         '38': "Load History",
         '39': "Pause / Continue",
         '40': "◉ Click to start recording",
-        '41': "Audio Conversion:",
+        '41': "Basic Information",
         '42': "Audio Language",
         '43': "Audio Engine",
         '44': "Translate To",
@@ -225,7 +230,11 @@ def GUI_LANG_STD():
         "106":"mono",
 	    "107":"stereo",
         "108":"Simplified Chinese",
-	    "109":"English"
+	    "109":"English",
+        "110":"Audio section max length",
+	    "111":"Seconds, not allow one audio section too long, normally <= 30 seconds, \nbecause of audio length limit for converting audio to text!",
+        "112":"Visualizing line color",
+	    "113":"Visualizing line color: color name or hex format as #FFFFFF, \nbut will use its device's assigned color in priority."
     }
     
     return lang_std
@@ -269,12 +278,12 @@ def GUI():
     WindX['main'].wm_attributes('-topmost',1) 
     WindX['main'].protocol("WM_DELETE_WINDOW", WindExit)
 
-    bgcolor = "#303030" #'#707070'
+    bgcolor = WindX['win_main_background']
     fgcolor = '#FFFFFF'
     WindX['Frame1'] = Frame(WindX['main'], bg=bgcolor)
     WindX['Frame1'].grid(row=0,column=0,sticky=E+W+S+N,pady=0,padx=0)
 
-    WindX['Frame2'] = Frame(WindX['main'], bg='#A0A0A0')
+    WindX['Frame2'] = Frame(WindX['main'], bg='#303030')
     WindX['Frame2'].grid(row=1,column=0,sticky=E+W+S+N,pady=0,padx=0)
 
     WindX['Frame3'] = Frame(WindX['main'], bg='#B0B0B0')
@@ -307,34 +316,6 @@ def GUI():
         b=iButton(WindX['Frame1'],row,col, AudioRecord, GUI_LANG(40) ,fg=fgcolor,bg=bgcolor,p=[LEFT,FLAT,3,key_button_pady,'#A0A0A0','#A0A0A0',10,E+W+N+S,1,1]) 
         WindX['b_AudioRecord'] = b.b
         #UI_WidgetBalloon(WindX['b_AudioRecord'], GUI_LANG(40))
-
-        col+=1
-        WindXX['EncryptCode'] = StringVar()
-        e=Entry(WindX['Frame1'], justify=CENTER, relief=FLAT, textvariable=WindXX['EncryptCode'], show="*", width=10)
-        e.grid(row=row,column=col,sticky=E+W+N+S,pady=1,padx=0)
-        e.bind('<Button>',    func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=e,ishow=''))
-        e.bind('<Leave>',     func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=e,ishow='*'))
-        e.bind('<KeyRelease>',func=UT_HandlerAdaptor(UI_KeyInputCheck,e=e))
-        e.focus()
-        WindX['e_EncryptCode'] = e
-        UI_WidgetBalloon(e,  GUI_LANG(84))        
-
-        psw_lbl = Label(WindX['Frame1'], text=GUI_LANG(86), justify=CENTER, relief=FLAT,pady=key_button_pady, padx=3, fg='red')
-        psw_lbl.grid(row=row,column=col,sticky=E+W+N+S,pady=1,padx=0)
-        psw_lbl.bind('<Button>',   func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=psw_lbl,ishow='close'))
-        UI_WidgetBalloon(psw_lbl,  GUI_LANG(84))  
-        
-        col+=1
-        WindXX['WatchingOptions_Vars']['ui_language'] = StringVar()
-        e = ttk.Combobox(WindX['Frame1'], textvariable= WindXX['WatchingOptions_Vars']['ui_language'], justify=CENTER,state="readonly") #, style='My.TCombobox'
-        e.grid(row=row,column=col,sticky=E+W+S+N,pady=1,padx=1)
-        e['values'] = WindXX['WatchingOptions_opts']['ui_language'][4]
-        WindXX['WatchingOptions_Vars']['ui_language'].set(WindXX['WatchingOptions_opts']['ui_language'][1])
-        WindX['b_ui_language'] = e
-        e.bind("<<ComboboxSelected>>", UI_LanguageChange)
-        UI_WidgetBalloon(e, GUI_LANG(1))
-        print(sys._getframe().f_lineno,"WindXX['WatchingOptions_Vars']['ui_language'].get()=", WindXX['WatchingOptions_Vars']['ui_language'].get())
-        #print(sys._getframe().f_lineno,e.configure())
     
         row +=1
         WindX['Frame11'] = Frame(WindX['Frame1'])
@@ -349,6 +330,40 @@ def GUI():
                 Label(WindX['Frame110A'], text= "1. " + GUI_LANG(41), justify=LEFT, relief=FLAT,pady=3,padx=3, fg='blue').grid(row=row110A,column=0,sticky=W, columnspan=10)
 
                 row110A += 1
+                #Encrypt code
+                Label(WindX['Frame110A'], text=' ', justify=LEFT, relief=FLAT,pady=3,padx=3, width=3 ).grid(row=row110A,column=0,sticky=W, pady=3)
+                Label(WindX['Frame110A'], text= GUI_LANG(86), justify=LEFT, relief=FLAT,pady=3,padx=3).grid(row=row110A,column=1,sticky=W)          
+                WindXX['EncryptCode'] = StringVar()
+                e=Entry(WindX['Frame110A'], justify=CENTER, relief=FLAT, textvariable=WindXX['EncryptCode'], show="*", width=10)
+                e.grid(row=row110A,column=2,sticky=E+W+N+S,pady=3,padx=0)
+                e.bind('<Button>',    func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=e,ishow=''))
+                e.bind('<Leave>',     func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=e,ishow='*'))
+                e.bind('<KeyRelease>',func=UT_HandlerAdaptor(UI_KeyInputCheck,e=e))
+                e.focus()
+                WindX['e_EncryptCode'] = e
+                UI_WidgetBalloon(e,  GUI_LANG(84))        
+
+                psw_lbl = Label(WindX['Frame110A'], text=GUI_LANG(86), justify=CENTER, relief=FLAT, pady=3, fg='red', bg='white')
+                psw_lbl.grid(row=row110A,column=2,sticky=E+W+N+S,pady=3,padx=0)
+                psw_lbl.bind('<Button>',   func=UT_HandlerAdaptor(UI_WidgetEntryShow,e=psw_lbl,ishow='close'))
+                UI_WidgetBalloon(psw_lbl,  GUI_LANG(84)) 
+
+                #UI Language
+                Label(WindX['Frame110A'], text=' ', justify=LEFT, relief=FLAT,pady=3,padx=3, width=3 ).grid(row=row110A,column=3,sticky=W)
+                Label(WindX['Frame110A'], text= GUI_LANG(1),  justify=LEFT, relief=FLAT,pady=3,padx=3).grid(row=row110A,column=4,sticky=W)
+                WindXX['WatchingOptions_Vars']['ui_language'] = StringVar()
+                e = ttk.Combobox(WindX['Frame110A'], textvariable= WindXX['WatchingOptions_Vars']['ui_language'], justify=CENTER,state="readonly") #, style='My.TCombobox'
+                e.grid(row=row110A,column=5,sticky=E+W+S+N,pady=3,padx=1)
+                e['values'] = WindXX['WatchingOptions_opts']['ui_language'][4]
+                WindXX['WatchingOptions_Vars']['ui_language'].set(WindXX['WatchingOptions_opts']['ui_language'][1])
+                WindX['b_ui_language'] = e
+                e.bind("<<ComboboxSelected>>", UI_LanguageChange)
+                UI_WidgetBalloon(e, GUI_LANG(1))
+                print(sys._getframe().f_lineno,"WindXX['WatchingOptions_Vars']['ui_language'].get()=", WindXX['WatchingOptions_Vars']['ui_language'].get())
+                #print(sys._getframe().f_lineno,e.configure())
+
+                row110A += 1
+                #convert engine
                 Label(WindX['Frame110A'], text=' ', justify=LEFT, relief=FLAT,pady=3,padx=3, width=3).grid(row=row110A,column=0,sticky=W, pady=3)
 
                 Label(WindX['Frame110A'], text= GUI_LANG(43), justify=LEFT, relief=FLAT,pady=3,padx=3).grid(row=row110A,column=1,sticky=W)
@@ -639,6 +654,11 @@ def UI_ConvertEngineChange(ev=None):
             'translate_to':[GUI_LANG(108), GUI_LANG(109), '']
         },
 
+        '4':{
+            'convert_to':  ['1737 - ' + GUI_LANG(109), '1537 - '  + GUI_LANG(2)],
+            'translate_to':[GUI_LANG(108), GUI_LANG(109), '']
+        },
+
         '3':{
             'convert_to':  [
                 'af-ZA 南非荷兰语（南非）', 'am-ET 阿姆哈拉语(埃塞俄比亚)', 'ar-AE 阿拉伯语（阿拉伯联合酋长国）', 'ar-BH 阿拉伯语（巴林）', 'ar-DZ 阿拉伯语（阿尔及利亚）', 'ar-EG 阿拉伯语（埃及）', 'ar-IL 阿拉伯语（以色列）',
@@ -864,7 +884,8 @@ def AudioConvertorEnd():
 
 def AudioConvertorStart(to_language, convert_engine):
     print(sys._getframe().f_lineno,"\n"+  GUI_LANG(55))
-    AudioConvertorEnd()    
+    AudioConvertorEnd() 
+   
     p = Process(target=OpenNew,args=(WindX['self_folder'] + "/AudioTranslatorConvertor.py", [re.sub(r'\s+', '___', str(to_language)), WindX['audio_file_format'], str(convert_engine), WindX['EncryptCode_current']]))
     p.start()
 
@@ -931,6 +952,27 @@ def AudioRecordPause(event=None):
         WindX['b_AudioRecordPause'].config(text='▶')
         WindX['audio_play_Go_working'].append(1) 
 
+        t = threading.Timer(0.1, AudioButton_Highlight, args=['AudioRecordPause_Yes', WindX['b_AudioRecordPause'], 360])
+        t.start()
+
+def AudioButton_Highlight(ikeyTrue, bttn, nc):
+    colors = UT_GetColors(n=nc)
+    i = 0
+    while WindX[ikeyTrue]:
+        if ikeyTrue == 'b_AudioRecord_action' and WindX['AudioRecordPause_Yes']:
+            bttn.config(fg="#FFFFFF", bg='#303030')
+        else:
+            try:
+                bttn.config(fg=colors[i], bg='#000000')
+            except:
+                pass
+            i +=1
+            if i >= nc:
+                i = 0
+
+        time.sleep(0.5)
+    
+    bttn.config(fg="#FFFFFF", bg='#303030')
 
 def AudioRecord(event=None):
     if WindX['b_AudioRecord_action']:
@@ -945,6 +987,7 @@ def AudioRecord(event=None):
         WindX['b_ui_language'].config(state='readonly')
 
         WindX['b_AudioRecord_action'] = False
+        WindX['AudioRecordPause_Yes'] = False
         WindX['b_AudioRecord'].config(text= GUI_LANG(40))
         #UI_WidgetBalloon(WindX['b_AudioRecord'], GUI_LANG(59))
         
@@ -984,6 +1027,9 @@ def AudioRecord(event=None):
         #UI_WidgetBalloon(WindX['b_AudioRecord'], GUI_LANG(60))
 
         t = threading.Timer(0.1, AudioRecord_timing)
+        t.start()
+
+        t = threading.Timer(0.1, AudioButton_Highlight, args=['b_AudioRecord_action', WindX['b_AudioRecord'], 360])
         t.start()
 
         r = recordAudio()
@@ -1210,8 +1256,20 @@ class recordAudio:
         self.audio_visualization_interval = 5
         self.audio_visualization_signal_enhance = 1.5
         self.convert_to_language = 1537 #1537 普通话(纯中文识别), 1737 英语
-        self.convert_engine = ""
+        self.convert_engine = int(re.sub(r'[^\d\.]+', '', str(WindXX['WatchingOptions_Vars']['convert_engine'].get())))
 
+        val =  WindXX['WatchingOptions_Vars']['audio_section_max_length'].get()
+        val = re.sub(r'[^\d\.]+', '', val)
+        if not val:
+            val = 25
+        self.audio_section_max_length =  int(val)  #seconds - do not allow one audio section too long, because there is a limit for converting audio to text!!!
+        if self.convert_engine == '4':
+            self.audio_section_max_length = 7200 #2 hours = 2 * 3600
+
+        self.audio_visualization_line_color = re.sub(r'^\s+|\s+$|[^a-z0-9]+', '', WindXX['WatchingOptions_Vars']['audio_visualization_line_color'].get(), re.I)
+        if not self.audio_visualization_line_color:
+            self.audio_visualization_line_color = 'red'
+        
         val = WindXX['WatchingOptions_Vars']['audio_visualization_num_per_page'].get()
         val = re.sub(r'[^\d\.]+', '', val)
         if not val:
@@ -1273,6 +1331,7 @@ class recordAudio:
             AudioRecordPause()
 
         if self.load_history or self.go_to_page:
+            self.devices_set_color(ifilter='all')
             return
 
         vals = {}
@@ -1282,6 +1341,7 @@ class recordAudio:
             'convert_engine', 
             'translate_to', 
             'ui_language',     
+            'audio_visualization_line_color',
 
             'translate_baidu_app_id',
             'translate_baidu_app_key',
@@ -1407,23 +1467,10 @@ class recordAudio:
 
         try:
             delaySeconds = 0.1
-            deviceIndexs = []
-
-            for s in WindXX['AudioDevicesSelected'].keys():
-                if WindXX['AudioDevicesSelected'][s].get():
-                    deviceIndexs.append(int(re.sub(r'data', '', s)))
-                WindX['b_AudioDevicesSelected_labels'][s].configure(bg='#EFEFEF')
+            deviceIndexs = self.devices_set_color()
 
             if len(deviceIndexs):
                 if len(deviceIndexs) <=5:
-                    self.device_colors = {}
-                    colors = ['#FF0000', '#33CCFF', '#0000FF', '#00FF00', '#009900'] #GetColorsHex(len(deviceIndexs))
-                    for i in range(len(deviceIndexs)):
-                        if i > 4:
-                            break
-                        self.device_colors['data' + str(deviceIndexs[i])] = colors[i]
-                        WindX['b_AudioDevicesSelected_labels']['data' + str(deviceIndexs[i])].configure(bg= colors[i])
-
                     threads = [] 
                     for i in range(len(deviceIndexs)):
                         if i > 4:
@@ -1454,6 +1501,31 @@ class recordAudio:
         except:
             print(sys._getframe().f_lineno,traceback.format_exc())
             AudioRecord()
+
+    def devices_set_color(self, ifilter='selected'):
+        try:
+            deviceIndexs = []
+            for s in WindXX['AudioDevicesSelected'].keys():
+                if ifilter== 'selected':
+                    if WindXX['AudioDevicesSelected'][s].get():
+                        deviceIndexs.append(int(re.sub(r'data', '', s)))
+                        WindX['b_AudioDevicesSelected_labels'][s].configure(bg='#EFEFEF')
+                else:
+                    deviceIndexs.append(int(re.sub(r'data', '', s)))
+                    WindX['b_AudioDevicesSelected_labels'][s].configure(bg='#EFEFEF')                
+
+            self.device_colors = {}
+            if len(deviceIndexs) <=5:
+                colors = ['#FF0000', '#33CCFF', '#0000FF', '#00FF00', '#009900'] #GetColorsHex(len(deviceIndexs))
+                for i in range(len(deviceIndexs)):
+                    if i > 4:
+                        break
+                    self.device_colors['data' + str(deviceIndexs[i])] = colors[i]
+                    WindX['b_AudioDevicesSelected_labels']['data' + str(deviceIndexs[i])].configure(bg= colors[i])
+
+            return deviceIndexs
+        except:
+            print(sys._getframe().f_lineno,traceback.format_exc())
 
     def is_valid_audio_fragment(self, data, device_index):
         try:
@@ -1500,7 +1572,7 @@ class recordAudio:
 
             self.sampwidth = p.get_sample_size(self.format)
             all_frames = []
-            half_second_cycles = 0.5*self.rate/self.frames_per_buffer
+            half_second_cycles = int(0.5*(self.rate/self.frames_per_buffer))
 
             has_signal_k = 0
             while WindX['b_AudioRecord_action']: 
@@ -1513,10 +1585,12 @@ class recordAudio:
                     data = None
                     frames = []  # 录制的音频流                    
                     k = 0
-                    thk = 0
+                    thk = 0    #count for valid voice per buffer
                     less = []
                     data_avg  = []
 
+                    audio_last_time = time.time()
+                    audio_section_time_break = False
                     while WindX['b_AudioRecord_action']:
                         if len(WindX['audio_play_Go_working']):
                             break
@@ -1536,19 +1610,26 @@ class recordAudio:
                             WindX['SystemAudioDevice_data'][data_index] = [data, voice_valid]
 
                         #如果有连续x个循环的点，都不是声音信号，就认为音频结束了
-                        if len(less) >= self.break_points:                            
+                        #If there are x consecutive loops of points, none of which are sound signals, the audio section is considered to be end
+                        if len(less) >= self.break_points:  #                         
+                            break
+                        elif (time.time() - audio_last_time > self.audio_section_max_length): #seconds - do not allow one audio section too long, because there is a limit for converting audio to text!!!
+                            audio_section_time_break = True
                             break
 
                         if (k == self.audio_visualization_interval or k == 0) and main_thread:      
                             k = 0
                             vstime = time.time()
+
+                            #visualize the waveform on the screen
                             t1 = threading.Timer(0.1, self.audio_visualization, args=[data, data_index, voice_valid])
                             t1.start()
                             #print(sys._getframe().f_lineno,'visualization, used time:', int((time.time() - vstime)*10000)/10, 'ms')
                         k +=1
                     
                     #print(sys._getframe().f_lineno,'thk=', thk)
-                    if thk > half_second_cycles:
+                    #if thk > half_second_cycles: #not use this condition, or will lose some audio sections!!!!!
+                    if thk > self.break_points or audio_section_time_break:
                         davg = int(np.average(data_avg))
                         if davg >= self.audio_threshold:
                             #xstime = time.time()
@@ -1604,7 +1685,7 @@ class recordAudio:
             #block = 20  #block number
             wblock = 10 #w / block
 
-            icolor = 'red'
+            icolor = 'red'           
             if self.device_colors.__contains__(data_index):
                 icolor = self.device_colors[data_index]
             r1 = self.audio_visualizationGo(data, w, h, icolor, WindX['b_frame1_canvas'], isValid, increasing=increasing, data_index=data_index, data_x0= WindX['audio_visualizationGo_x0'], wblock=wblock)
@@ -1749,14 +1830,18 @@ class recordAudio:
                     points.append(int(h*2))
 
             item = 0
-            if linetype == 'line':
-                item = icanvas.create_line(
-                    points,
-                    fill = color,
-                    width= 1
-                )               
-            else:
-                item = icanvas.create_polygon(points, width=1,outline=color,fill="")
+
+            try:
+                if linetype == 'line':
+                    item = icanvas.create_line(
+                        points,
+                        fill = color,
+                        width= 1
+                    )               
+                else:
+                    item = icanvas.create_polygon(points, width=1,outline=color,fill="")
+            except:
+                print(sys._getframe().f_lineno, traceback.format_exc())
             
             if increasing and data_index:                
                 if not WindX['audio_visualizationGo_canvas_items'].__contains__(data_x0):
@@ -1858,7 +1943,7 @@ class recordAudio:
             record_time = int(len(frames)*self.frames_per_buffer / self.rate * 1000)/1000
 
             pady = 0
-            ibg = "#303030"
+            ibg = WindX['win_main_background']
             ifg = "#FFFFFF"
 
             lbl0 = Label(WindX['ClassScrollableFrame'].scrollable_frame, text="", justify=CENTER, relief=FLAT,pady=3,padx=3, bg=ibg)
@@ -1931,12 +2016,15 @@ class recordAudio:
                 }
 
             WindX['frame_visualize_cur_page'][xrow] =[lbl1, b.b, text, icanvas, filepath, device, None, record_time, len(frames)*self.frames_per_buffer, ttitle, WindX['main'].winfo_width(), "", "", all_pages_rows] 
-            t1 = threading.Timer(0.1, self.audio_add_ui_refresh, args=[icanvas, data, y_moveto])
+
+            xx = re.split(r'\s+', re.sub(r'^\s+|\s+$','', re.sub(r'[^\d]+',' ', str(device), re.I)))
+            data_index = 'data' + xx[-1]
+            t1 = threading.Timer(0.1, self.audio_add_ui_refresh, args=[icanvas, data, y_moveto, data_index])
             t1.start()
         except:
             print(sys._getframe().f_lineno,traceback.format_exc())
 
-    def audio_add_ui_refresh(self, icanvas, data, y_moveto):
+    def audio_add_ui_refresh(self, icanvas, data, y_moveto, data_index):
         if not self.go_to_page:
             k = len(WindX['frame_visualize_all_pages'].keys())
             pages = int(k / self.audio_visualization_num_per_page) + 1
@@ -1946,7 +2034,11 @@ class recordAudio:
         rectFram = UI_WidgetRectGET(icanvas)
         w = rectFram[2] - rectFram[0]
         h = rectFram[3] - rectFram[1]
-        self.audio_visualizationGo(data, w, h, 'red', icanvas, True, dy=1, dx=1, x0=0)               
+
+        icolor = self.audio_visualization_line_color
+        if data_index and self.device_colors.__contains__(data_index):
+            icolor = self.device_colors[data_index]
+        self.audio_visualizationGo(data, w, h, icolor, icanvas, True, dy=1, dx=1, x0=0)               
         WindX['ClassScrollableFrame'].canvasLeave(force=True, y_moveto=y_moveto)
 
     def audio_conversion_check(self,):
@@ -1961,79 +2053,82 @@ class recordAudio:
                             fileID   = UT_GetMD5(filepath)
                             if WindX['frame_visualize_cur_page_done'].__contains__(fileID) and WindX['frame_visualize_cur_page_done'][fileID]:
                                 continue
-                            if len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text']) and len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']):
-                                WindX['frame_visualize_cur_page_done'][fileID] = True
-                                continue
+                            
+                            row_13 = WindX['frame_visualize_cur_page'][row][13]
+                            if len(str(row_13)) and WindX['frame_visualize_all_pages'].__contains__(row_13):
+                                if len(WindX['frame_visualize_all_pages'][row_13]['audio2text']) and len(WindX['frame_visualize_all_pages'][row_13]['translation']):
+                                    WindX['frame_visualize_cur_page_done'][fileID] = True
+                                    continue
 
-                            #print(sys._getframe().f_lineno,row, fileID, filepath)
-                            #print(sys._getframe().f_lineno,WindX['frame_visualize_cur_page'][row][13], "audio2text=", WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'], "|||| translation=", WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation'])
+                                #print(sys._getframe().f_lineno,row, fileID, filepath)
+                                #print(sys._getframe().f_lineno,row_13, "audio2text=", WindX['frame_visualize_all_pages'][row_13]['audio2text'], "|||| translation=", WindX['frame_visualize_all_pages'][row_13]['translation'])
 
-                            k = 0
-                            if not len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text']):
-                                if os.path.exists(filepath) and os.path.exists(filepath + '.txt'):
-                                    t = UT_FileOpen(filepath + '.txt', format='string')
-                                    if len(t):
-                                        k += 1
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = t
-                                    else:
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = " "
-                                    os.rename(filepath + '.txt', filepath + '.txt' + '.done')
-                                elif os.path.exists(filepath) and os.path.exists(filepath + '.txt.done'):
-                                    t = UT_FileOpen(filepath + '.txt.done', format='string')
-                                    if len(t):
-                                        k += 1                                        
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = t      
-                                    else:
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = " "
-                                elif os.path.exists(filepath) and os.path.exists(filepath + '.err'):
-                                    t = UT_FileOpen(filepath + '.err', format='string')                            
-                                    if len(t):
-                                        k += 1                                        
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = "[Error!] " + t                                        
-                                    else:
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = " "
+                                k = 0
+                                if not len(WindX['frame_visualize_all_pages'][row_13]['audio2text']):
+                                    if os.path.exists(filepath) and os.path.exists(filepath + '.txt'):
+                                        t = UT_FileOpen(filepath + '.txt', format='string')
+                                        if len(t):
+                                            k += 1
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = t
+                                        else:
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = " "
+                                        os.rename(filepath + '.txt', filepath + '.txt' + '.done')
+                                    elif os.path.exists(filepath) and os.path.exists(filepath + '.txt.done'):
+                                        t = UT_FileOpen(filepath + '.txt.done', format='string')
+                                        if len(t):
+                                            k += 1                                        
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = t      
+                                        else:
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = " "
+                                    elif os.path.exists(filepath) and os.path.exists(filepath + '.err'):
+                                        t = UT_FileOpen(filepath + '.err', format='string')                            
+                                        if len(t):
+                                            k += 1                                        
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = "[Error!] " + t                                        
+                                        else:
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = " "
 
-                                elif os.path.exists(filepath) and os.path.exists(filepath + '.warn'):
-                                    t = UT_FileOpen(filepath + '.warn', format='string')                            
-                                    if len(t):
-                                        k += 1                                        
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = "[Warning!] " + t                                        
-                                    else:
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text'] = " "
+                                    elif os.path.exists(filepath) and os.path.exists(filepath + '.warn'):
+                                        t = UT_FileOpen(filepath + '.warn', format='string')                            
+                                        if len(t):
+                                            k += 1                                        
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = "[Warning!] " + t                                        
+                                        else:
+                                            WindX['frame_visualize_all_pages'][row_13]['audio2text'] = " "
 
-                            if not len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']):
-                                if os.path.exists(filepath) and os.path.exists(filepath + '.translated'):
-                                    tt = UT_FileOpen(filepath + '.translated', format='string')
-                                    if len(tt):
-                                        k += 1
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation'] = tt
-                                    else:
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation'] = " "
-                                    os.rename(filepath + '.translated', filepath + '.translated' + '.done')
-                                elif os.path.exists(filepath) and os.path.exists(filepath + '.translated.done'):
-                                    tt = UT_FileOpen(filepath + '.translated.done', format='string')
-                                    if len(tt):
-                                        k += 1
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation'] = tt
-                                    else:
-                                        WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation'] = " "
+                                if not len(WindX['frame_visualize_all_pages'][row_13]['translation']):
+                                    if os.path.exists(filepath) and os.path.exists(filepath + '.translated'):
+                                        tt = UT_FileOpen(filepath + '.translated', format='string')
+                                        if len(tt):
+                                            k += 1
+                                            WindX['frame_visualize_all_pages'][row_13]['translation'] = tt
+                                        else:
+                                            WindX['frame_visualize_all_pages'][row_13]['translation'] = " "
+                                        os.rename(filepath + '.translated', filepath + '.translated' + '.done')
+                                    elif os.path.exists(filepath) and os.path.exists(filepath + '.translated.done'):
+                                        tt = UT_FileOpen(filepath + '.translated.done', format='string')
+                                        if len(tt):
+                                            k += 1
+                                            WindX['frame_visualize_all_pages'][row_13]['translation'] = tt
+                                        else:
+                                            WindX['frame_visualize_all_pages'][row_13]['translation'] = " "
 
-                            if k and len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text']):
-                                t = WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['audio2text']
-                                if re.match(r'^\[Error\!\]\s+', t, re.I):
-                                    WindX['frame_visualize_cur_page'][row][2].config(fg="red")
-                                elif re.match(r'^\[Warning\!\]\s+', t, re.I):
-                                    WindX['frame_visualize_cur_page'][row][2].config(fg="yellow")
+                                if k and len(WindX['frame_visualize_all_pages'][row_13]['audio2text']):
+                                    t = WindX['frame_visualize_all_pages'][row_13]['audio2text']
+                                    if re.match(r'^\[Error\!\]\s+', t, re.I):
+                                        WindX['frame_visualize_cur_page'][row][2].config(fg="red")
+                                    elif re.match(r'^\[Warning\!\]\s+', t, re.I):
+                                        WindX['frame_visualize_cur_page'][row][2].config(fg="yellow")
 
-                                if len(t) and len(WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']):
-                                    t = t + "\n" + WindX['frame_visualize_all_pages'][WindX['frame_visualize_cur_page'][row][13]]['translation']    
-                                    WindX['frame_visualize_cur_page_done'][fileID] = True                  
-                                n+=1
-                                try:
-                                    WindX['frame_visualize_cur_page'][row][2].delete('0.0',"end")
-                                    WindX['frame_visualize_cur_page'][row][2].insert('0.0', t)
-                                except:
-                                    pass
+                                    if len(t) and len(WindX['frame_visualize_all_pages'][row_13]['translation']):
+                                        t = t + "\n" + WindX['frame_visualize_all_pages'][row_13]['translation']    
+                                        WindX['frame_visualize_cur_page_done'][fileID] = True                  
+                                    n+=1
+                                    try:
+                                        WindX['frame_visualize_cur_page'][row][2].delete('0.0',"end")
+                                        WindX['frame_visualize_cur_page'][row][2].insert('0.0', t)
+                                    except:
+                                        pass  
                         except:
                             print(sys._getframe().f_lineno,traceback.format_exc())
                     
@@ -2318,7 +2413,7 @@ class ClassScrollableFrame(ttk.Frame):
         self.canvas = Canvas(self, 
             width=500, 
             height=300,
-            bg="#A0A0A0",
+            bg= WindX['win_main_background'],
             relief=FLAT,
             bd = 0,
         )
@@ -2329,7 +2424,7 @@ class ClassScrollableFrame(ttk.Frame):
         #self.scrollbar_x = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
 
         self.gui_style = ttk.Style()
-        self.gui_style.configure('My.TFrame', background='#707070', padx=0, pady=0, relief=FLAT, bd=0)
+        self.gui_style.configure('My.TFrame', background='#404040', padx=0, pady=0, relief=FLAT, bd=0)
         self.scrollable_frame = ttk.Frame(self.canvas, style='My.TFrame')
         
         #"""
