@@ -17,9 +17,21 @@ from numpyencoder import NumpyEncoder
 import zlib
 import base64
 from Crypto.Cipher import AES
+import pygetwindow
 
 from colorama import init
 init(autoreset=True) #set this True to print color fonts in the console
+
+def UI_AT_Close(mark=""):
+    for winx in pygetwindow.getAllWindows():
+        #<Win32Window left="-7", top="-7", width="2575", height="1407", title="tmp6.py - Visual Studio Code [Administrator]">
+        if winx.title and re.match(r'.*AT\-Convertor\s+\d+\.*\d*', str(winx.title), re.I):
+            try:       
+                print("\n#AU from {}#".format(mark),  sys._getframe().f_lineno, "close window:", winx, "\n")
+                winx.close()
+            except:
+                print("#AU from {}#".format(mark),  sys._getframe().f_lineno, traceback.format_exc())
+            break
 
 def UI_ChangeBackgroud(event=None, e=None, color=""):
     if e and color:
@@ -365,14 +377,20 @@ def usedTime(stime,t=0):
 
     return tt['h'] + ':' + tt['m'] + ':' + tt['s'] 
 
-def OpenNew(f, options=[]):
-    cmd = "python " + str("".join(f) + " "+ " ".join(options))
-    print("\n\n#AU#",  sys._getframe().f_lineno, cmd, ", f=",f, ', options=', options)
+def OpenNew(f, to_language, audio_file_format, convert_engine, EncryptCode):
+    options=[to_language, audio_file_format, convert_engine, EncryptCode]
+    cmd = ""
+    xfile = str("".join(f))
+    if re.match(r'.*\.py$', xfile, re.I):
+        cmd = "python " + xfile + " "+ " ".join(options)
+    else:
+        cmd = xfile + " " + " ".join(options)
+    
+    #print("\n\n#AU#",  sys._getframe().f_lineno, "cmd=\"" + cmd + "\"", ", f=",f, ', options=', options)
     try:
         os.system(cmd)
     except:
         print("\n", traceback.format_exc())
-
 
 def Progress(i, n, stime, x="",lastTime=0, to_print=False):                        
     if n > 0:

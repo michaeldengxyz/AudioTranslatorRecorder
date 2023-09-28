@@ -6,90 +6,176 @@ import traceback
 import re
 import os,sys
 
+#------------------------------
+#!!! have to use this to find the right root path in its .exe file!!!
+print("\n#AR", sys._getframe().f_lineno,"run from file:", __file__, "\nsys.argv=", sys.argv, "\ngetcwd:", os.getcwd())  
+
+#sys.argv= ['T:\\OneDrive\\Program\\AT\\dist\\AudioTranslatorRecorder.exe', '--multiprocessing-fork', 'parent_pid=10980', 'pipe_handle=2496']
+#check and stop Process(): multiprocessing module starts a new Python process, for Windows!
+for s in sys.argv:
+    if re.match(r'.*multiprocessing\-fork', s, re.I):
+        print(sys._getframe().f_lineno,"\n=========================== This runs from a Process(), stop!! ===========================\n")
+        os._exit(0)
+
+self_sys_argv0  = os.path.basename(sys.argv[0])
+self_folder = ""
+def find_real_file(ofile):
+    self_folder = ""
+    dirname = os.path.abspath(os.path.dirname(ofile))
+    if dirname and os.path.exists(dirname):
+        self_folder = re.sub(r'\\','/', dirname)
+    else:
+        fname = os.path.basename(ofile)        
+        for root, dirs, files in os.walk(os.getcwd(), topdown=True):
+            for name in files:
+                if re.match(r'.*{}$'.format(fname), str(name), re.I):
+                    print(sys._getframe().f_lineno,"find file:", name)
+                    self_folder = re.sub(r'\\','/',os.path.abspath(os.path.dirname(name)))
+                    break
+            if self_folder:
+                break
+    return self_folder
+
+if os.path.exists(sys.argv[0]):
+    self_folder = re.sub(r'\\','/',os.path.abspath(os.path.dirname(sys.argv[0])))
+
+if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_options.json')):
+    self_folder = find_real_file(sys.argv[0])
+
+print("\n#AR", sys._getframe().f_lineno,"root:", self_folder, "\n")
+if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_options.json')):
+    print(sys._getframe().f_lineno,"\n=========================== Failed to find root path!! ===========================\n")
+    os._exit(0)
+sys.path.append(self_folder)
+#------------------------------
+
 from tkinter import *
 from tkinter import filedialog,ttk,messagebox
 
 from AudioTranslatorUtils import *
-#import librosa
-#from librosa import amplitude_to_db
 import audioop
 import pyaudio
 import wave
+import socket
 
+import pygetwindow
 import win32gui
 import threading
 import numpy as np 
 from multiprocessing import Process
-import psutil
+
+"""
+注意: 在windows中Process()必须放到# if __name__ == '__main__':下
+由于Windows没有fork, 多处理模块启动一个新的Python进程并导入调用模块。 
+如果在导入时调用Process(), 那么这将启动无限继承的新进程（或直到机器耗尽资源）.
+这是隐藏对Process()内部调用的原, 使用if __name__ == '__main __, 这个if语句中的语句将不会在导入时被调
+
+Note: in Windows Process () must be in the # if __name__ = = "__main__ ':
+Since Windows has no fork, the multiprocessing module starts a new Python process and imports the calling module.
+If Process() is called at import time, this will start a new process that inherits indefinitely (or until the machine runs out of resources).
+This hides the origin of internal calls to Process(), using if __name__ == '__main __, the statements in this if statement will not be called at import time
+"""
 
 WindX  = {}
 WindXX = {}
-WindX['self_folder'] = re.sub(r'\\','/',os.path.abspath(os.path.dirname(__file__)))
-print(sys._getframe().f_lineno,"\nroot:",WindX['self_folder'])  
-sys.path.append(WindX['self_folder'])
+WindX['self_folder'] = self_folder
+WindX['self_sys_argv0'] = self_sys_argv0
 
-app_outfolder = WindX['self_folder']
-app_outfolder_recorders = WindX['self_folder'] + "/Records"
-if not os.path.exists(app_outfolder_recorders):
-    print(sys._getframe().f_lineno,"create dir:", app_outfolder_recorders)
-    os.makedirs(app_outfolder_recorders)
+def Revisons():
+    WindX['main_rev_list'] ={
+        '1.3': "initiation",
+        '1.4': "add new functions"
+    }
 
-app_watching_options_file = WindX['self_folder'] + '/AudioTranslator_audio_options.json'
-app_ui_languages = WindX['self_folder'] + '/AudioTranslator_ui_languages.json'
+def init():
+    #The folder self_folder contains: 
+    #---- AudioTranslator_audio_options.json
+    #---- AudioTranslator_ui_languages.json
+    #---- AudioTranslatorConvertor.py (AudioTranslatorConvertor.exe)
+    #---- AudioTranslatorRecorder.py (AudioTranslatorRecorder.exe)
+    #---- AudioTranslatorUtils.py
+    WindX['app_watching_options_file'] = WindX['self_folder'] + '/AudioTranslator_audio_options.json'
+    WindX['app_ui_languages']          = WindX['self_folder'] + '/AudioTranslator_ui_languages.json'
+    WindX['ms_languages_selected_default'] = ['de', 'fr', 'en', 'ja', 'ko', 'pt', 'ru', 'zh']
+    #The folder self_root_folder contains:
+    #---- Records (folder to save all audio records)
+    
+    WindX['self_root_folder'] = WindX['self_folder']
+    vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
+    if vals and vals.__contains__('custom'):
+        if vals['custom'].__contains__('self_root_folder') and vals['custom']['self_root_folder'] and os.path.exists(vals['custom']['self_root_folder']):
+            WindX['self_root_folder'] = re.sub(r'\/+Records$|\/+\s*$', '', vals['custom']['self_root_folder'], flags=re.I)
+            sys.path.append(WindX['self_root_folder'])
+            print("\n#AR", sys._getframe().f_lineno,"Records saved in:", WindX['self_root_folder'], "\n")
+        
+        if vals['custom'].__contains__('ms_languages_selected') and vals['custom']['ms_languages_selected']:
+            WindX['ms_languages_selected_default'] = re.split(r'\s*\,\s*', vals['custom']['ms_languages_selected'])
 
-#print(sys._getframe().f_lineno,"\n", os.path.dirname(app_ui_languages))
-#print(sys._getframe().f_lineno,os.path.basename(app_ui_languages), "\n")
+    WindX['app_outfolder_recorders'] = WindX['self_root_folder'] + "/Records"
+    if not os.path.exists(WindX['app_outfolder_recorders']):
+        print(sys._getframe().f_lineno,"create dir:", WindX['app_outfolder_recorders'])
+        os.makedirs(WindX['app_outfolder_recorders'])
 
-WindX['main_rev'] = '1.3'
-WindX['main'] = None
-WindX['mainPX'] = 20
-WindX['mainPY'] = 20 
-WindX['b_AudioRecord_action'] = False
-WindX['SystemAudioDevice_data'] = {}
-WindX['yscrollbar_oWidth'] = 0
-WindX['start_time'] = time.time()
+    #print(sys._getframe().f_lineno,"\n", os.path.dirname(WindX['app_ui_languages']))
+    #print(sys._getframe().f_lineno,os.path.basename(WindX['app_ui_languages']), "\n")
 
-WindX['ClassScrollableFrame_frame_rows'] = 0
-WindX['frame_visualize_cur_page'] = {}
-WindX['frame_visualize_all_pages'] = {}
-WindX['frame_visualize_cur_page_done'] = {}
-WindX['frame_visualize_all_pages_ui_index'] = 0
-WindX['win_last_geo'] = ""
-WindX['add_ui_data'] = []
-WindX['audio_play_Go_working'] = []
-WindX['audio_play_Go_working_by_row'] = {}
+    WindX['main_rev'] = '1.4'
+    WindX['main'] = None
+    WindX['mainPX'] = 20
+    WindX['mainPY'] = 20
+    
+    WindX['b_AudioRecord_action'] = False
+    WindX['SystemAudioDevice_data'] = {}
+    WindX['yscrollbar_oWidth'] = 0
+    WindX['start_time'] = time.time()
 
-WindX['AudioRecordOptions_show'] = True
-WindXX['AudioDevicesSelected'] = {}
-WindXX['AudioDevicesInfo'] = {}
-WindX['b_AudioDevicesSelected_labels'] = {}
-WindX['b_AudioDevicesSelected_checkboxes'] = {}
-WindX['AudioWatchingOptions_show'] = False
-WindXX['WatchingOptions_Vars'] = {}
-WindX['amplitude_to_db_vals'] = {}
-WindX['audio_visualizationGo_PointData'] = {}
-WindX['audio_visualizationGo_x0'] = 0
-WindX['audio_visualizationGo_canvas_items'] = {}
-WindX['audio_file_format'] = 'wav'
-WindX['AudioRecordPause_Yes'] = False
-WindX['b_AudioDeviceTests'] = {}
-WindX['AudioAccountOptions_show'] = False
+    WindX['ClassScrollableFrame_frame_rows'] = 0
+    WindX['frame_visualize_cur_page'] = {}
+    WindX['frame_visualize_all_pages'] = {}
+    WindX['frame_visualize_cur_page_done'] = {}
+    WindX['frame_visualize_all_pages_ui_index'] = 0
+    WindX['win_last_geo'] = ""
+    WindX['add_ui_data'] = []
+    WindX['audio_play_Go_working'] = []
+    WindX['audio_play_Go_working_by_row'] = {}
 
-WindXX['WatchingOptions_opts'] = {}
-WindXX['UI_LANG'] = None
-WindXX['UI_LANG_SEL'] = "CN"
-WindX['EncryptCode_current'] = ""
-WindX['last_ss_values'] = {}
-WindX['win_main_background'] = "#303030"
+    WindX['AudioRecordOptions_show'] = True
+    WindXX['AudioDevicesSelected'] = {}
+    WindXX['AudioDevicesInfo'] = {}
+    WindX['b_AudioDevicesSelected_labels'] = {}
+    WindX['b_AudioDevicesSelected_checkboxes'] = {}
+    WindX['AudioWatchingOptions_show'] = False
+    WindXX['WatchingOptions_Vars'] = {}
+    WindXX['WatchingOptions_Vars_ms_languages'] = {}
+    WindX['amplitude_to_db_vals'] = {}
+    WindX['audio_visualizationGo_PointData'] = {}
+    WindX['audio_visualizationGo_x0'] = 0
+    WindX['audio_visualizationGo_canvas_items'] = {}
+    WindX['audio_file_format'] = 'wav'
+    WindX['AudioRecordPause_Yes'] = False
+    WindX['b_AudioDeviceTests'] = {}
+    WindX['AudioAccountOptions_show'] = False
+    WindX['MoreLanguages_show'] = False
+
+    WindXX['WatchingOptions_opts'] = {}
+    WindXX['UI_LANG'] = None
+    WindXX['UI_LANG_SEL'] = "CN"
+    WindX['EncryptCode_current'] = ""
+    WindX['last_ss_values'] = {}
+    WindX['win_main_background'] = "#303030"
+    WindX['self_scrollable_frame2'] = 0
 
 def GUI_Init():
     WindX['win_main_background'] = "#303030"
-    
+        
     WindXX['WatchingOptions_opts'] = {
         'ui_language' : ['selectbox', 'CN - 简体中文', GUI_LANG(1), GUI_LANG(1), ['EN - English', 'CN - 简体中文']], 
         'convert_to_language' : ['selectbox', '1537 - ' + GUI_LANG(2), GUI_LANG(3),GUI_LANG(3), ['1737 - '+ GUI_LANG(109), '1537 - '  + GUI_LANG(2)]], 
         'convert_engine' : ['selectbox', '1 - ' + GUI_LANG(103), GUI_LANG(4), GUI_LANG(4), ['1 - ' + GUI_LANG(103), '2 - ' + GUI_LANG(104), '3 - ' + GUI_LANG(105),'4 - ' + GUI_LANG(5)]],
         'translate_to'   : ['selectbox', GUI_LANG(108), GUI_LANG(6), GUI_LANG(6), [GUI_LANG(108), GUI_LANG(109), '']], 
+        'ms_languages_selected': ['entry', '', '', WindX['ms_languages_selected_default'], ''],
+        'self_root_folder':['entry', '', GUI_LANG(114), GUI_LANG(115), ''],
+        
         'frames_per_buffer' : ['selectbox', 1024, GUI_LANG(7),GUI_LANG(8), [256, 512, 1024, 2048, 4896]], 
         'channels' : ['selectbox','1 - '+ GUI_LANG(106), GUI_LANG(9), GUI_LANG(10), ['1 - '+ GUI_LANG(106), '2 - '+ GUI_LANG(107)]], 
         'format' : ['selectbox', 16, GUI_LANG(11), GUI_LANG(12), [8, 16, 24, 32]],   #pyaudio.paInt16, .paInt8, .paInt16, .paInt24, .paInt32
@@ -234,7 +320,14 @@ def GUI_LANG_STD():
         "110":"Audio section max length",
 	    "111":"Seconds, not allow one audio section too long, normally <= 30 seconds, \nbecause of audio length limit for converting audio to text!",
         "112":"Visualizing line color",
-	    "113":"Visualizing line color: color name or hex format as #FFFFFF, \nbut will use its device's assigned color in priority."
+	    "113":"Visualizing line color: color name or hex format as #FFFFFF, \nbut will use its device's assigned color in priority.",
+        "114":"Records saved in",
+        "115":"Records saved in, where you keep the audio records",
+        "116":"Select Folder",
+        "117":"Please run the file: AudioTranslatorConvertor.(exe|py)\n in the folder",
+        "118":"Have you run it now?",
+        "119":"More languages",
+        "120":"Languages available for MS speech engine"
     }
     
     return lang_std
@@ -244,9 +337,9 @@ def GUI_LANG(n):
         return "N/A"
     
     if not WindXX['UI_LANG']:
-        if os.path.exists(app_ui_languages):
-            WindXX['UI_LANG'] = UT_JsonFileRead(filepath= app_ui_languages)    #{1:{'CN':""  , 'EN':""}, 2:{'CN':""  , 'EN':""}, ...}
-            vals = UT_JsonFileRead(filepath= app_watching_options_file)
+        if os.path.exists(WindX['app_ui_languages']):
+            WindXX['UI_LANG'] = UT_JsonFileRead(filepath= WindX['app_ui_languages'])    #{1:{'CN':""  , 'EN':""}, 2:{'CN':""  , 'EN':""}, ...}
+            vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
             if vals and vals.__contains__('custom') and vals["custom"].__contains__('ui_language') and re.match(r'.*English', vals["custom"]['ui_language'], re.I):
                 WindXX['UI_LANG_SEL'] = "EN"
         else:
@@ -257,7 +350,9 @@ def GUI_LANG(n):
                     'CN':"",
                     'EN': lang_std[num]
                 }
-            UT_JsonFileSave(filepath= app_ui_languages, fdata= langs)
+            
+            print("\n#AR", sys._getframe().f_lineno,"Saved to:", WindX['app_ui_languages'])
+            UT_JsonFileSave(filepath= WindX['app_ui_languages'], fdata= langs)
 
     n = str(n)
     if WindXX['UI_LANG'] and WindXX['UI_LANG'].__contains__(n) and WindXX['UI_LANG'][n].__contains__(WindXX['UI_LANG_SEL']) and len(WindXX['UI_LANG'][n][WindXX['UI_LANG_SEL']]):
@@ -283,7 +378,7 @@ def GUI():
     WindX['Frame1'] = Frame(WindX['main'], bg=bgcolor)
     WindX['Frame1'].grid(row=0,column=0,sticky=E+W+S+N,pady=0,padx=0)
 
-    WindX['Frame2'] = Frame(WindX['main'], bg='#303030')
+    WindX['Frame2'] = Frame(WindX['main'], bg= WindX['win_main_background'])
     WindX['Frame2'].grid(row=1,column=0,sticky=E+W+S+N,pady=0,padx=0)
 
     WindX['Frame3'] = Frame(WindX['main'], bg='#B0B0B0')
@@ -392,7 +487,68 @@ def GUI():
                 e['values'] = WindXX['WatchingOptions_opts']['translate_to'][4]
                 WindX['b_ui_translate_to'] = e
                 WindXX['WatchingOptions_Vars']['translate_to'].set(WindXX['WatchingOptions_opts']['translate_to'][1])
-                print(sys._getframe().f_lineno,"WindXX['WatchingOptions_Vars']['translate_to'].get()=",WindXX['WatchingOptions_Vars']['translate_to'].get())
+                #print(sys._getframe().f_lineno,"WindXX['WatchingOptions_Vars']['translate_to'].get()=",WindXX['WatchingOptions_Vars']['translate_to'].get())
+
+                b=iButton(WindX['Frame110A'],row110A,6, UI_MoreLanguages, '...' ,fg='blue',bg='#EFEFEF', p=[LEFT,FLAT,3,1,'#FFFF66','#FFFF99',10,E+W+N+S,1,1]) 
+                WindX['b_ui_more_languages'] = b.b
+                UI_WidgetBalloon(b.b, GUI_LANG(119))
+
+                row110A += 1                
+                WindX['Frame110A1'] = Frame(WindX['Frame110A'], bg="gray")
+                WindX['Frame110A1'].grid(row=row110A,column=1,sticky=E+W+S+N,pady=1,padx=0, columnspan=5)
+                if WindX['Frame110A1']:
+                    #WindX['Frame110A11'] = Frame(WindX['Frame110A1'])
+                    #WindX['Frame110A11'].grid(row=0,column=0,sticky=E+W+S+N,pady=1,padx=1, columnspan=10)
+
+                    Frame110A11 = ClassScrollableFrame2(WindX['Frame110A1'])                 
+                    Frame110A11.grid(row=0,column=0,sticky=E+W+S+N,pady=1,padx=1, columnspan=10)
+                    #WindX['main'].bind("<MouseWheel>",  Frame110A11.canvasMouseWheel)
+                    Frame110A11.scrollable_frame.grid_columnconfigure(2, weight=1)
+                    WindX['Frame110A11'] = Frame110A11.scrollable_frame
+
+                    lang_list = UI_ConvertEngineChange(get3list=True)
+                    Label(WindX['Frame110A11'], text= GUI_LANG(120) + ' ('+ str(len(lang_list)) +')', justify=LEFT, relief=FLAT,pady=3,padx=3, anchor="w", bg="#D0D0D0").grid(row=0,column=1,sticky=E+W+S+N, columnspan=10)
+                    row110A11 = 1
+                    col110A11 = 0                    
+                    for lang in lang_list:
+                        col110A11 += 1  
+                        langs = re.split(r'\s+', lang)
+                        fname = langs[0]
+                        WindXX['WatchingOptions_Vars_ms_languages'][fname] = BooleanVar()
+                        cb = Checkbutton(WindX['Frame110A11'], text= lang, variable=WindXX['WatchingOptions_Vars_ms_languages'][fname], justify=LEFT, anchor="w", relief=FLAT,pady=3,padx=3)
+                        cb.grid(row= row110A11,column=col110A11,sticky=E+W+S+N)
+                        #cb.bind('<ButtonRelease-1>', UI_MoreLanguagesChange)
+                        cb.bind("<MouseWheel>",  Frame110A11.canvasMouseWheel)
+                        ischecked = False
+                        for lx in WindXX['WatchingOptions_opts']['ms_languages_selected'][3]:
+                            if re.match(r'^{}(\-|\s+)'.format(lx), lang, re.I):
+                                ischecked = True                                
+                                break
+                        WindXX['WatchingOptions_Vars_ms_languages'][fname].set(ischecked)
+
+                        if col110A11 > 2:
+                            col110A11 = 0
+                            row110A11 +=1
+
+                    WindX['Frame110A1'].grid_columnconfigure(0, weight=1)
+                    WindX['Frame110A11'].bind('<Leave>', UI_MoreLanguagesChange)
+
+                    row110A11 += 1
+                    WindXX['WatchingOptions_Vars']['ms_languages_selected'] = StringVar()
+                    e=Entry(WindX['Frame110A11'], justify=LEFT, relief=FLAT, textvariable= WindXX['WatchingOptions_Vars']['ms_languages_selected'], state='readonly', fg='green')
+                    e.grid(row=row110A11,column=0,sticky=E+W+N+S,pady=0,padx=0, columnspan=4)
+                    WindXX['WatchingOptions_Vars']['ms_languages_selected'].set(", ".join(WindXX['WatchingOptions_opts']['ms_languages_selected'][3]))
+
+                row110A += 1
+                Label(WindX['Frame110A'], text=' ', justify=LEFT, relief=FLAT,pady=3,padx=3, width=3 ).grid(row=row110A,column=0,sticky=W, pady=3)
+                Label(WindX['Frame110A'], text= GUI_LANG(114), justify=LEFT, relief=FLAT,pady=3,padx=3).grid(row=row110A,column=1,sticky=W)
+                WindXX['WatchingOptions_Vars']['self_root_folder'] = StringVar()
+                e=Entry(WindX['Frame110A'], justify=LEFT, relief=FLAT, textvariable= WindXX['WatchingOptions_Vars']['self_root_folder'], width=10)
+                e.grid(row=row110A,column=2,sticky=E+W+N+S,pady=3,padx=0, columnspan=4)
+                UI_WidgetBalloon(e,  GUI_LANG(115))   
+
+                b=iButton(WindX['Frame110A'],row110A,6, UI_SetFolder, '...' ,fg='blue',bg='#EFEFEF', p=[LEFT,FLAT,3,1,'#FFFF66','#FFFF99',10,E+W+N+S,1,1]) 
+                UI_WidgetBalloon(b.b, GUI_LANG(116))
 
             row11 +=1
             #Label(WindX['Frame11'], text='Audio Devices (select for watching):', justify=LEFT, relief=FLAT,pady=3,padx=3).grid(row=row11,column=0,sticky=W,columnspan=10, pady=1)
@@ -419,6 +575,8 @@ def GUI():
                     'convert_engine', 
                     'translate_to', 
                     'ui_language', 
+                    'ms_languages_selected',
+                    'self_root_folder',
 
                     'translate_baidu_app_id',
                     'translate_baidu_app_key',
@@ -618,20 +776,33 @@ def GUI():
         except:
             print(sys._getframe().f_lineno, traceback.format_exc())
 
+    WindX['b_ui_more_languages'].grid_remove()
     AudioDeviceRefresh()    
     WindX['ClassScrollableFrame'].canvasLeave(force=True)
-
 
     WindX['WindowRect_Frame112'] = win32gui.GetWindowRect(WindX['Frame112'].winfo_id())
     #print(sys._getframe().f_lineno,'\nFrame112', WindX['WindowRect_Frame112'])
     WindX['Frame112'].grid_remove()
     WindX['Frame113'].grid_remove()
+    WindX['Frame110A1'].grid_remove()
+
     WindX['main'].update()
     wgeo = WindX['main'].geometry()
     #print(sys._getframe().f_lineno,'\ngeometry=', wgeo)
     WindX['main'].geometry(re.sub(r'^\d+x\d+', str(int(WindX['main'].winfo_screenwidth()/2)) + 'x' + str(int(WindX['main'].winfo_screenheight()*0.85)), wgeo))
 
     mainloop()
+
+def UI_SetFolder():
+    fpath = filedialog.askdirectory(initialdir = WindX['self_folder'])
+    if fpath:
+        if re.match(r'.*\/+Records$', fpath, re.I):
+            fpath = re.sub(r'\/+Records$', '', fpath, flags=re.I)
+
+        WindX['self_root_folder'] = re.sub(r'\/+$', '',fpath)
+        WindX['app_outfolder_recorders'] = WindX['self_root_folder'] + "/Records"
+        print(sys._getframe().f_lineno, "new " + GUI_LANG(115), WindX['app_outfolder_recorders'], "\nself_root_folder=", WindX['self_root_folder'])
+        WindXX['WatchingOptions_Vars']['self_root_folder'].set(WindX['self_root_folder'])
 
 def UI_KeyInputCheck(event,e=None):
     #if event.keycode == 13:
@@ -644,9 +815,51 @@ def UI_KeyInputCheck(event,e=None):
 def UI_WidgetEntryShowX(event=None, e=None):
     UI_WidgetEntryShow(e=e, ishow='decrypt', code=WindX['EncryptCode_current'])
 
-def UI_ConvertEngineChange(ev=None):
+def UI_MoreLanguages(ev=None):
+    #print("MoreLanguages ...")    
+    if WindX['MoreLanguages_show']:
+        WindX['MoreLanguages_show'] = False
+        WindX['Frame110A1'].grid_remove()
+    else:
+        WindX['MoreLanguages_show'] = True
+        WindX['Frame110A1'].grid()
+
+def UI_MoreLanguagesChange(ev=None):
+    sels = {}
+    for fname in WindXX['WatchingOptions_Vars_ms_languages'].keys():        
+        #print(fname, WindXX['WatchingOptions_Vars_ms_languages'][fname].get())
+        if WindXX['WatchingOptions_Vars_ms_languages'][fname].get():
+            fns = re.split(r'\-+', fname)
+            sels[fns[0]] = 1
+
+    selsx = sorted(sels.keys())
+    selected_langs = re.split(r'\s*\,\s*', WindXX['WatchingOptions_Vars']['ms_languages_selected'].get())
+    if selsx == selected_langs:
+        return
+
+    WindXX['WatchingOptions_Vars']['ms_languages_selected'].set(", ".join(selsx))
+    UI_ConvertEngineChange()
+
+    #save the change
+    vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
+    if not vals.__contains__('custom'): 
+        vals['custom'] = {}
+    vals['custom']['ms_languages_selected'] = ", ".join(selsx)
+    UT_JsonFileSave(WindX['app_watching_options_file'], fdata=vals)
+
+def UI_ConvertEngineChange(ev=None, get3list=False):
     ce = re.split(r'\s+', WindXX['WatchingOptions_Vars']['convert_engine'].get())
     print(sys._getframe().f_lineno,"Audio Engine:", ce)  #'1 - Baidu', '2 - Google', '3 - Bing AI','4 - '
+
+    selected_langs = []
+    if ce[0] == '3':
+        WindX['b_ui_more_languages'].grid()
+        selected_langs = re.split(r'\s*\,\s*', WindXX['WatchingOptions_Vars']['ms_languages_selected'].get())
+        print('selected_langs=', selected_langs)
+    else:
+        WindX['b_ui_more_languages'].grid_remove()
+        WindX['MoreLanguages_show'] = False
+        WindX['Frame110A1'].grid_remove()
     
     avl = {
         '1':{
@@ -744,16 +957,40 @@ def UI_ConvertEngineChange(ev=None):
             'translate_to':[]
         },         
     }
+
+    if get3list:
+        if WindXX['UI_LANG_SEL'] == "EN" and avl['3'].__contains__('convert_to_EN'):
+            return avl['3']['translate_to_EN']
+        else:
+            return avl['3']['translate_to']
     
     if ce[0] and avl.__contains__(ce[0]):
         if WindXX['UI_LANG_SEL'] == "EN" and avl[ce[0]].__contains__('convert_to_EN'):
             avl[ce[0]]['convert_to']   = avl[ce[0]]['convert_to_EN']
             avl[ce[0]]['translate_to'] = avl[ce[0]]['translate_to_EN']
 
-        WindX['b_ui_convert_to_language']["values"] = avl[ce[0]]['convert_to']
-        WindXX['WatchingOptions_Vars']['convert_to_language'].set(avl[ce[0]]['convert_to'][0])
-        WindX['b_ui_translate_to']["values"] = avl[ce[0]]['translate_to']
-        WindXX['WatchingOptions_Vars']['translate_to'].set(avl[ce[0]]['translate_to'][0])
+        listx={
+            'convert_to': [],
+            'translate_to': []
+        }
+        if len(selected_langs):
+            for tp in ['convert_to', 'translate_to']:
+                for ct in avl[ce[0]][tp]:
+                    ischecked = False
+                    for lx in selected_langs:
+                        if re.match(r'^{}(\-|\s+)'.format(lx), ct, re.I):
+                            ischecked = True                                
+                            break
+                    if ischecked:
+                        listx[tp].append(ct)            
+        else:
+            listx['convert_to']   = avl[ce[0]]['convert_to']
+            listx['translate_to'] = avl[ce[0]]['translate_to']            
+
+        WindX['b_ui_convert_to_language']["values"] = listx['convert_to']
+        WindXX['WatchingOptions_Vars']['convert_to_language'].set(listx['convert_to'][0])
+        WindX['b_ui_translate_to']["values"] = listx['translate_to']
+        WindXX['WatchingOptions_Vars']['translate_to'].set(listx['translate_to'][0])
 
         UI_Last_ConvertTranslateLang(WindX['last_ss_values'], ce[0])
     else:
@@ -777,7 +1014,7 @@ def UI_Last_ConvertTranslateLang(ss_values, CE0):
 def UI_LanguageChange(ev=None):
     tolange = WindXX['WatchingOptions_Vars']['ui_language'].get()
     #print(sys._getframe().f_lineno,ev, tolange, __file__)
-    vals = UT_JsonFileRead(filepath= app_watching_options_file)
+    vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
     go = True
     if vals and vals.__contains__('custom') and vals["custom"].__contains__('ui_language'):
         if vals["custom"]['ui_language'] == tolange:
@@ -791,7 +1028,8 @@ def UI_LanguageChange(ev=None):
         return
     
     vals["custom"]['ui_language'] = tolange
-    UT_JsonFileSave(app_watching_options_file, fdata=vals)
+    print("\n#AR", sys._getframe().f_lineno,"Saved to:", WindX['app_watching_options_file'])
+    UT_JsonFileSave(WindX['app_watching_options_file'], fdata=vals)
     
     print(sys._getframe().f_lineno,"\n" +  GUI_LANG(52))
     p = Process(target=OpenNew,args=(__file__, []))
@@ -806,7 +1044,7 @@ def UI_EncryptCode_Check():
         return False
     
     #verify input code
-    vals = UT_JsonFileRead(filepath= app_watching_options_file)
+    vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
     if vals and vals.__contains__('custom') and WindX['EncryptCode_current']:
         if vals['custom'].__contains__('EncryptCode_MD5_VerifyCode') and vals['custom']['EncryptCode_MD5_VerifyCode']:
             VerifyCode = UT_MD5_VerifyCode(WindX['EncryptCode_current'])
@@ -841,6 +1079,18 @@ def UI_EncryptCode_Check():
     
     return True
 
+def UI_Socket_Message(msg):
+    print(sys._getframe().f_lineno,"sending via socket ... ...")
+    try:
+        proc = socket.socket()
+        proc.connect(('127.0.0.1', 8181))
+        proc.send(msg.encode(encoding='UTF-8',errors='ignore')) 
+        rdata = proc.recv(1024).decode()
+        print(sys._getframe().f_lineno, "received reply:", rdata)
+        proc.close()
+    except:
+        print(sys._getframe().f_lineno, traceback.format_exc())
+
 def AudioPageChange(step=0):
     t = WindX['b_AudioPageStatus'].config('text')
     tt = re.split(r'[^\d]+', re.sub(r'^.*Page\s+', '', str(t), re.I))
@@ -872,23 +1122,70 @@ def AudioPageChange(step=0):
     r = recordAudio(go_to_page=True)
     r.audio_go_to_page(to_page)
 
-def AudioConvertorEnd():
-    print(sys._getframe().f_lineno,"\n" +  GUI_LANG(53))
-    for proc in psutil.process_iter():
-        if re.match(r'.*python', str(proc.name()), re.I):
-            if re.match(r'.*AudioTranslatorConvertor\.py', str(proc.cmdline()), re.I):
-                print(sys._getframe().f_lineno,"\t" +  GUI_LANG(54))
-                print(sys._getframe().f_lineno,'\tname=', proc.name(), ', cmdline=', proc.cmdline())
-                proc.kill() 
-                break
+def AudioConvertorEnd(force=False):
+    if (not force) and (not re.match(r'.*\.py$', WindX['self_sys_argv0'], re.I)):
+        return
+        #do only when run in python
+
+    print("\n", sys._getframe().f_lineno, GUI_LANG(53))
+    UI_AT_Close("AR")
 
 def AudioConvertorStart(to_language, convert_engine):
-    print(sys._getframe().f_lineno,"\n"+  GUI_LANG(55))
-    AudioConvertorEnd() 
-   
-    p = Process(target=OpenNew,args=(WindX['self_folder'] + "/AudioTranslatorConvertor.py", [re.sub(r'\s+', '___', str(to_language)), WindX['audio_file_format'], str(convert_engine), WindX['EncryptCode_current']]))
-    p.start()
+    AudioConvertorEnd()
+    print("\n--------------------------------\n",sys._getframe().f_lineno, GUI_LANG(55))    
+    
+    xfile = "AudioTranslatorConvertor.py"
+    if os.path.exists(WindX['self_folder'] + "/AudioTranslatorConvertor.exe") and re.match(r'.*\.exe$', WindX['self_sys_argv0'], re.I):
+        xfile = "AudioTranslatorConvertor.exe"
 
+    print(sys._getframe().f_lineno,
+          "\nAudioConvertorStart:",  
+          WindX['self_folder'] + '/' + xfile, 
+          re.sub(r'\s+', '___', str(to_language)), 
+          WindX['audio_file_format'], 
+          str(convert_engine),
+          re.sub(r'\w', '*', WindX['EncryptCode_current']),
+          "\n--------------------------------\n"
+        )
+    os.chdir(WindX['self_folder'])
+    
+    if re.match(r'.*\.py$', WindX['self_sys_argv0'], re.I):
+        #!!! this function Process(...) can not work with .exe format in Windows !!!
+        try:
+            p = Process(
+                target=OpenNew,
+                args=(xfile, 
+                    re.sub(r'\s+', '___', str(to_language)),
+                    WindX['audio_file_format'], 
+                    str(convert_engine), 
+                    WindX['EncryptCode_current']
+                    )
+                )
+            p.start()
+        except:
+            print(sys._getframe().f_lineno,traceback.format_exc())
+    else:
+        #use socket
+        #check if AudioTranslatorConvertor is running
+        IsACon = False  
+        reply_ok = True    
+        while not IsACon:            
+            for winx in pygetwindow.getAllWindows():
+                #<Win32Window left="-7", top="-7", width="2575", height="1407", title="tmp6.py - Visual Studio Code [Administrator]">
+                if winx.title and re.match(r'.*AT\-Convertor\s+\d+\.*\d*', str(winx.title), re.I):
+                    IsACon = True
+                    break
+
+            if not IsACon:
+                reply_ok = messagebox.askokcancel(title = GUI_LANG(70), message= GUI_LANG(117) + " " + WindX['self_folder'] + "\n\n" + GUI_LANG(118))
+                if not reply_ok:
+                    break
+        
+        if reply_ok:
+            UI_Socket_Message(", ".join([re.sub(r'\s+', '___', str(to_language)), WindX['audio_file_format'], str(convert_engine), WindX['EncryptCode_current']]))
+
+        print("")
+    
 def AudioAccountOptions(event=None):
     if WindX['AudioAccountOptions_show']:
         WindX['AudioAccountOptions_show'] = False
@@ -920,14 +1217,14 @@ def AudioRecordOptions(event=None):
         WindX['Frame11'].grid()
 
 def AudioRecordLoadHistory(event=None):
-    #fpath = filedialog.askdirectory(initialdir = app_outfolder_recorders)
+    #fpath = filedialog.askdirectory(initialdir = WindX['app_outfolder_recorders'])
     #if fpath:
     #    print(sys._getframe().f_lineno,"\nAudioRecordLoadHistory:", re.sub(r'\\','/',fpath))
 
     filepath = filedialog.askopenfilename(
                 filetypes= [('audio_info', '.jsonx')], 
                 defaultextension='.jsonx',
-                initialdir= app_outfolder_recorders,
+                initialdir= WindX['app_outfolder_recorders'],
                 title= GUI_LANG(56) + " - audio_info.jsonx"
                 )
     if filepath:
@@ -952,15 +1249,15 @@ def AudioRecordPause(event=None):
         WindX['b_AudioRecordPause'].config(text='▶')
         WindX['audio_play_Go_working'].append(1) 
 
-        t = threading.Timer(0.1, AudioButton_Highlight, args=['AudioRecordPause_Yes', WindX['b_AudioRecordPause'], 360])
+        t = threading.Timer(0.1, AudioButton_Highlight, args=['AudioRecordPause_Yes', WindX['b_AudioRecordPause'], 360, WindX['win_main_background']])
         t.start()
 
-def AudioButton_Highlight(ikeyTrue, bttn, nc):
+def AudioButton_Highlight(ikeyTrue, bttn, nc, obg):
     colors = UT_GetColors(n=nc)
     i = 0
     while WindX[ikeyTrue]:
         if ikeyTrue == 'b_AudioRecord_action' and WindX['AudioRecordPause_Yes']:
-            bttn.config(fg="#FFFFFF", bg='#303030')
+            bttn.config(fg="#FFFFFF", bg=obg)
         else:
             try:
                 bttn.config(fg=colors[i], bg='#000000')
@@ -972,7 +1269,7 @@ def AudioButton_Highlight(ikeyTrue, bttn, nc):
 
         time.sleep(0.5)
     
-    bttn.config(fg="#FFFFFF", bg='#303030')
+    bttn.config(fg="#FFFFFF", bg=obg)
 
 def AudioRecord(event=None):
     if WindX['b_AudioRecord_action']:
@@ -986,16 +1283,18 @@ def AudioRecord(event=None):
         WindX['b_AudioLastPage'].config(state='normal')
         WindX['b_ui_language'].config(state='readonly')
 
-        WindX['b_AudioRecord_action'] = False
-        WindX['AudioRecordPause_Yes'] = False
-        WindX['b_AudioRecord'].config(text= GUI_LANG(40))
+        WindX['b_AudioRecord_action'] = False        
+        WindX['b_AudioRecord'].config(text= GUI_LANG(40), fg="#FFFFFF", bg=WindX['win_main_background'])
         #UI_WidgetBalloon(WindX['b_AudioRecord'], GUI_LANG(59))
+
+        WindX['AudioRecordPause_Yes'] = False
+        WindX['b_AudioRecordPause'].config(text='||', fg="#FFFFFF", bg=WindX['win_main_background'])
         
         for s in WindXX['AudioDevicesSelected'].keys():
             WindX['b_AudioDevicesSelected_labels'][s].configure(bg='#EFEFEF')
             WindX['b_AudioDevicesSelected_checkboxes'][s].configure(state='normal')
 
-        os.chdir(app_outfolder)
+        os.chdir(WindX['self_folder'])
     else:
         if not UI_EncryptCode_Check():
             return
@@ -1029,7 +1328,7 @@ def AudioRecord(event=None):
         t = threading.Timer(0.1, AudioRecord_timing)
         t.start()
 
-        t = threading.Timer(0.1, AudioButton_Highlight, args=['b_AudioRecord_action', WindX['b_AudioRecord'], 360])
+        t = threading.Timer(0.1, AudioButton_Highlight, args=['b_AudioRecord_action', WindX['b_AudioRecord'], 360, WindX['win_main_background']])
         t.start()
 
         r = recordAudio()
@@ -1138,7 +1437,7 @@ def AudioDeviceRefresh(event=None):
                 WindX['b_AudioDevicesSelected_checkboxes'][data_index].select()
 
     #set custom values
-    vals = UT_JsonFileRead(filepath= app_watching_options_file)
+    vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
     #print(sys._getframe().f_lineno,vals)
     print(sys._getframe().f_lineno,GUI_LANG(77))
 
@@ -1211,6 +1510,7 @@ def AudioInfoSave(filepath):
             fdata[row][s] = WindX['frame_visualize_all_pages'][row][s]
     
     if n:
+        print("\n#AR", sys._getframe().f_lineno, "Saved to:", filepath)
         UT_JsonFileSave(filepath=filepath, fdata=fdata)
     '''
     WindX['frame_visualize_all_pages'][row] = {
@@ -1230,12 +1530,15 @@ def WindExit():
         AudioRecord()        
         time.sleep(3)
 
-    AudioConvertorEnd()
+    #close the convertor
+    AudioConvertorEnd(True)
+
     WindX['main'].destroy()  
     os._exit(0)
     #sys.exit(0)  # This will cause the window error: Python has stopped working ...
 
 def main():
+    init()
     GUI()
 
 class recordAudio:
@@ -1290,10 +1593,10 @@ class recordAudio:
             self.history_file = history_file
             self.outfoldertmp = os.path.dirname(history_file)
         else:
-            self.outfoldertmp       = app_outfolder_recorders + "/Audio." + timestf
+            self.outfoldertmp       = WindX['app_outfolder_recorders'] + "/Audio." + timestf
             self.outfile_audio      = self.outfoldertmp  + "/device"
             self.audio_info_outfile = self.outfoldertmp  + "/audio_info.jsonx"
-            self.audio_watching_options_file = app_watching_options_file
+            self.audio_watching_options_file = WindX['app_watching_options_file']
             self.audio_watching_options_file_this_record = self.outfoldertmp + '/audio_options.json'
     
             if not os.path.exists(self.outfoldertmp):  
@@ -1340,7 +1643,9 @@ class recordAudio:
             'channels', 
             'convert_engine', 
             'translate_to', 
-            'ui_language',     
+            'ui_language',
+            'ms_languages_selected',
+            'self_root_folder',    
             'audio_visualization_line_color',
 
             'translate_baidu_app_id',
@@ -1450,7 +1755,10 @@ class recordAudio:
             'default': WindXX['WatchingOptions_opts'],
             'custom' : vals
         }
+        print("\n#AR", sys._getframe().f_lineno,"Saved to:", self.audio_watching_options_file)
         UT_JsonFileSave(self.audio_watching_options_file, fdata=fdata)
+
+        print("\n#AR", sys._getframe().f_lineno,"Saved to:", self.audio_watching_options_file_this_record)
         UT_JsonFileSave(self.audio_watching_options_file_this_record, fdata=fdata)
     
         ce = re.split(r'\s+', WindXX['WatchingOptions_Vars']['convert_engine'].get())
@@ -2406,6 +2714,86 @@ class iButton:
 
     def iLeave(self,event):
         self.b.config(bg = self.bg)
+
+class ClassScrollableFrame2(ttk.Frame):
+    def __init__(self, container, show_scrollbar_x=True, *args, **kwargs):
+        super().__init__(container, *args, **kwargs)
+        self.canvas = Canvas(self, 
+            width=500, 
+            height=300,
+            #bg= WindX['win_main_background'],
+            relief=FLAT,
+            bd = 0,
+        )
+        self.canvas.configure(highlightthickness = 0)
+        self.canvas.grid(row=0,column=0,sticky=E+W+N+S,padx=0,pady=0)
+        
+        self.scrollbar_y = ttk.Scrollbar(self, orient="vertical",   command=self.canvas.yview)
+        if show_scrollbar_x:
+            self.scrollbar_x = ttk.Scrollbar(self, orient="horizontal", command=self.canvas.xview)
+
+        self.gui_style = ttk.Style()
+        self.gui_style.configure('My.TFrame', background='#404040', padx=0, pady=0, relief=FLAT, bd=0)
+        self.scrollable_frame = ttk.Frame(self.canvas, style='My.TFrame')
+        
+        #"""
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+        #"""
+
+        self.container = container        
+        container.bind("<Motion>", self.canvasMotion)
+        container.bind("<MouseWheel>",  self.canvasMouseWheel)
+        container.bind("<Leave>",  self.canvasLeave)
+                
+        self.win_scrollable_frame_canvas_index = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar_y.set)
+        if show_scrollbar_x:
+            self.canvas.configure(xscrollcommand=self.scrollbar_x.set)
+
+        self.scrollbar_y_show = True
+
+        self.scrollbar_y.grid(row=0,column=1,sticky=N+S)
+        if show_scrollbar_x:
+            self.scrollbar_x.grid(row=1,column=0,sticky=E+W) 
+
+        #self.scrollable_frame.grid(row=0,column=0,sticky=E+W,padx=0,pady=0)  #can not grid, because need scrollbar_y function!!!!
+        self.canvas.grid_columnconfigure(0, weight=1)
+        #self.canvas.grid_rowconfigure(0, weight=1)
+
+        #- ttkFrame
+        #---- canvas (0, 0)
+        #-------- scrollable_frame
+        #---- scrollbar_y (0,1), scrollbar_y (1,1)
+
+    def canvasMouseWheel(self,e):
+        if self.scrollbar_y_show:
+            #print(sys._getframe().f_lineno,"canvasMouseWheel")
+            self.canvas.yview_scroll(int(-1*(e.delta/120)), "unit")
+
+    def canvasMotion(self,e):
+        return
+        self.scrollbar_y.grid()
+        self.scrollbar_y_show = True
+
+    def canvasLeave(self,e=None,force=False, y_moveto=1.0):
+        rectMain = UI_WidgetRectGET(self.container)
+        MainW = rectMain[2] - rectMain[0] - 2
+
+        if not WindX['self_scrollable_frame2']:
+            rectFram = UI_WidgetRectGET(self.scrollable_frame)
+            WindX['self_scrollable_frame2'] = rectFram[2] - rectFram[0]
+
+        #1. check width
+        CanvW = MainW - WindX['yscrollbar_oWidth']
+        if CanvW > 0 and WindX['self_scrollable_frame2'] < MainW:
+            #print(sys._getframe().f_lineno,"set width=", CanvW)
+            self.canvas.configure(width = CanvW)
+            self.canvas.itemconfig(self.win_scrollable_frame_canvas_index, width=CanvW) #change the windows inside canvas
 
 class ClassScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):

@@ -51,7 +51,7 @@
 	"50":{"CN":"将UI语言更改为", "EN":"Change UI language to"},
 	"51":{"CN":"这个应用程序需要重新启动，行吗？", "EN":"this app needs to restart, go?"},
 	"52":{"CN":"更改UI语言, 重新启动。。。", "EN":"Change UI language, restart ..."},
-	"53":{"CN":"检查到端转换器。。。", "EN":"Check to end convertor ..."},
+	"53":{"CN":"检查关闭转换器。。。", "EN":"Check to end convertor ..."},
 	"54":{"CN":"----关闭这个线程----", "EN":"---- Kill this process! ----"},
 	"55":{"CN":"正在启动转换器。。。", "EN":"Initiating convertor ..."},
 	"56":{"CN":"打开文件", "EN":"Open File"},
@@ -111,5 +111,14 @@
 	"110":{"CN":"音频 - 片段最长为", "EN":"Audio section max length"},
 	"111":{"CN":"秒, 因为语音转文本有时间长度限制, 音频片段不能太长, 一般不超过30秒!", "EN":"Seconds, not allow one audio section too long, normally <= 30 seconds, \nbecause of audio length limit for converting audio to text!"},
 	"112":{"CN":"可视化 - 线段颜色", "EN":"Visualizing line color"},
-	"113":{"CN":"可视化线段颜色: 颜色名称, 或者16进制格式 (例如#FFFFFF), \n但将优先使用其设备指定的颜色。", "EN":"Visualizing line color: color name, or hex format as #FFFFFF, \nbut will use its device's assigned color in priority."}
+	"113":{"CN":"可视化线段颜色: 颜色名称, 或者16进制格式 (例如#FFFFFF), \n但将优先使用其设备指定的颜色。", "EN":"Visualizing line color: color name, or hex format as #FFFFFF, \nbut will use its device's assigned color in priority."},
+	"114":{"CN":"记录保存于", "EN":"Records saved in"},
+	"115":{"CN":"保存语音记录的文件夹/Records", "EN":"Records saved in the folder /Records, where you keep the audio records"},
+	"116":{"CN":"选择文件夹", "EN":"Select Folder"},
+	"117":{"CN":"请打开这个文件AudioTranslatorConvertor.(exe|py), \n其在这个文件夹里面: ", "EN":"Please run the file: AudioTranslatorConvertor.(exe|py)\n in the folder"},
+	"118":{"CN":"准备好了吗?", "EN":"Have you run it now?"},
+	"119":{"CN":"设置更多语言", "EN":"More languages"},
+	"120":{"CN":"微软语音引擎的可选语言", "EN":"Languages available for MS speech engine"}
+
+	
 }

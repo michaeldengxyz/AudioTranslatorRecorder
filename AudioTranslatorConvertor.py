@@ -1,10 +1,13 @@
 #Pyhton 3.x
 # -*- coding: UTF-8 -*-
 
-#pip install baidu-aip
-#pip install chardet
-#pip install SpeechRecognition
+#
+#
+#pip install SpeechRecognition   #not be used now
 '''
+pip install requests
+pip install chardet
+pip install baidu-aip
 pip install cryptography
 pip install pyOpenSSL
 pip install certifi
@@ -17,9 +20,45 @@ import time
 import traceback
 import re
 import os,sys
+
+#------------------------------
+#!!! have to use this to find the right root path in its .exe file!!!
+print("\n#AC#", sys._getframe().f_lineno,"run from file:", __file__, "\nsys.argv=", sys.argv, "\ngetcwd:", os.getcwd())  
+self_folder = ""
+def find_real_file(ofile):
+    self_folder = ""
+    dirname = os.path.abspath(os.path.dirname(ofile))
+    if dirname and os.path.exists(dirname):
+        self_folder = re.sub(r'\\','/', dirname)
+    else:
+        fname = os.path.basename(ofile)        
+        for root, dirs, files in os.walk(os.getcwd(), topdown=True):
+            for name in files:
+                if re.match(r'.*{}$'.format(fname), str(name), re.I):
+                    print(sys._getframe().f_lineno,"find file:", name)
+                    self_folder = re.sub(r'\\','/',os.path.abspath(os.path.dirname(name)))
+                    break
+            if self_folder:
+                break
+    return self_folder
+
+if os.path.exists(sys.argv[0]):
+    self_folder = re.sub(r'\\','/',os.path.abspath(os.path.dirname(sys.argv[0])))
+
+if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_options.json')):
+    self_folder = find_real_file(sys.argv[0])
+
+print("\n#AC#", sys._getframe().f_lineno,"root:", self_folder, "\n")
+if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_options.json')):
+    print("\n#AC#", sys._getframe().f_lineno,"\n=========================== Failed to find root path!! ===========================\n")
+    os._exit(0)
+sys.path.append(self_folder)
+#------------------------------
+
+from tkinter import Tk, mainloop
 import glob
 from aip import AipSpeech
-from AudioTranslatorUtils import UT_FileSave, UT_JsonFileSave, UT_JsonFileRead, UT_CryptMe, UT_GetMD5, UT_MD5_VerifyCode,UT_Str2Int
+from AudioTranslatorUtils import UT_FileSave, UT_JsonFileSave, UT_JsonFileRead, UT_CryptMe, UT_GetMD5, UT_MD5_VerifyCode,UT_Str2Int, UI_AT_Close
 import wave
 import numpy as np
 import threading
@@ -28,86 +67,96 @@ import requests
 import random
 from hashlib import md5
 
-import speech_recognition as sr
+#import speech_recognition as sr     #not be used now
 import azure.cognitiveservices.speech as speechsdk
-
 import requests, uuid, json
+import socket
 
 print("\n\n#AC#",  sys._getframe().f_lineno,'\nAudio Translator - Convertor\n\tsys.argv=', sys.argv)
 
 WindX  = {}
-WindX['self_folder'] = re.sub(r'\\','/',os.path.abspath(os.path.dirname(__file__)))
-print("#AC#",  sys._getframe().f_lineno,"\nroot:",WindX['self_folder'])  
-sys.path.append(WindX['self_folder']) 
-
-app_outfolder_recorders = WindX['self_folder'] + "/Records"
-
-WindX['baidu_api_client'] = None
-WindX['AudioToText_Done'] = []
-WindX['window_title'] = "Audio Translator - Convertor"
-
-WindX['convert_engine'] = 1
-if  len(sys.argv) > 3 and sys.argv[3]:
-    WindX['convert_engine'] = UT_Str2Int(sys.argv[3])
-
-WindX['AudioToText_to_language'] = ""
-if WindX['convert_engine'] == 1:
-    WindX['AudioToText_to_language'] = 1537 #1537 普通话(纯中文识别), 1737 英语
-    if len(sys.argv) >1 and sys.argv[1] and sys.argv[1] in ['1737', '1537']:
-        WindX['AudioToText_to_language'] = UT_Str2Int(sys.argv[1])
-    print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'], "(1537 普通话(纯中文识别), 1737 英语)")
-elif len(sys.argv) >1 and sys.argv[1]:
-    WindX['AudioToText_to_language'] = re.sub(r'___', ' ', str(sys.argv[1]))
-    print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'])
-
-WindX['audio_file_format'] = 'wav'
-if  len(sys.argv) >2 and sys.argv[2] and sys.argv[2] in ['wav', 'mp3']:
-    WindX['audio_file_format'] = sys.argv[2]
-
-WindX['EncryptCode_current'] = ""
-if  len(sys.argv) > 4 and sys.argv[4]:
-    WindX['EncryptCode_current'] = str(sys.argv[4])
-print("#AC#",  sys._getframe().f_lineno,"\tEncryptCode_current:", WindX['EncryptCode_current'])
-if not WindX['EncryptCode_current']:
-    print("#AC#",  sys._getframe().f_lineno,"\n=========================== Encrypt code is not valid!! ===========================\n")
-    sys.exit(0)
-
-
-WindX['main'] = None
-WindX['options_files_vals'] = {}
-
 WindXX = {}
-WindXX['WatchingOptions_opts'] = {
-    'translate_baidu_app_id' :  ['entry', 'encrypt'],
-    'translate_baidu_app_key' : ['entry', 'encrypt'],
+WindX['self_folder'] = self_folder
+WindX['self_root_folder'] = ""
+WindX['audio_options.json_last_update'] = 0
+WindX['main'] = None
 
-    'audio2text_baidu_app_id' :  ['entry', 'encrypt'],
-    'audio2text_baidu_api_key' : ['entry', 'encrypt'],
-    'audio2text_baidu_api_secret_key' : ['entry', 'encrypt'],
+def init():
+    AudioRecordFoleder()
 
-    'translate_azure_app_key' :  ['entry', 'encrypt'],
-    'translate_azure_app_region':['entry', 'encrypt'],
+    WindX['baidu_api_client'] = None
+    WindX['AudioToText_Done'] = []
 
-    'audio2text_azure_api_speech_key' : ['entry', 'encrypt'],
-    'audio2text_azure_api_speech_region' : ['entry', 'encrypt']    
-}
+    WindX['convert_engine'] = 1
+    if  len(sys.argv) > 3 and sys.argv[3]:
+        WindX['convert_engine'] = UT_Str2Int(sys.argv[3])
+    print("#AC#",  sys._getframe().f_lineno,"\tConvert Engine:", WindX['convert_engine'])
 
-def api_connect(optVals={}):
-    #https://ai.baidu.com/ai-doc/SPEECH/pk4o0bkx8
-    hasValidKey = 0
+    WindX['AudioToText_to_language'] = ""
+    if WindX['convert_engine'] == 1:
+        WindX['AudioToText_to_language'] = 1537 #1537 普通话(纯中文识别), 1737 英语
+        if len(sys.argv) >1 and sys.argv[1] and sys.argv[1] in ['1737', '1537']:
+            WindX['AudioToText_to_language'] = UT_Str2Int(sys.argv[1])
+        print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'], "(1537 普通话(纯中文识别), 1737 英语)")
+    elif len(sys.argv) >1 and sys.argv[1]:
+        WindX['AudioToText_to_language'] = re.sub(r'___', ' ', str(sys.argv[1]))
+        print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'])
 
-    #print("#AC#",  sys._getframe().f_lineno,"api_connect optVals=", optVals)
-    for s in ['audio2text_baidu_app_id', 'audio2text_baidu_api_key','audio2text_baidu_api_secret_key']:
-        if (optVals.__contains__(s) and optVals[s]):
-            hasValidKey += 1
-    if hasValidKey < 3:
-        print("\n",sys._getframe().f_lineno, "audio2text_baidu_app or key or secret_key is not valid!!")
-        return
+    WindX['audio_file_format'] = 'wav'
+    if  len(sys.argv) >2 and sys.argv[2] and sys.argv[2] in ['wav', 'mp3']:
+        WindX['audio_file_format'] = sys.argv[2]
+    print("#AC#",  sys._getframe().f_lineno,"\tAudio file format:", WindX['audio_file_format'])
 
-    baidu_app_id = optVals['audio2text_baidu_app_id'] 
-    baidu_api_key= optVals['audio2text_baidu_api_key']
-    baidu_api_secret_key = optVals['audio2text_baidu_api_secret_key']
-    WindX['baidu_api_client'] = AipSpeech(baidu_app_id, baidu_api_key, baidu_api_secret_key)
+    WindX['EncryptCode_current'] = ""
+    if  len(sys.argv) > 4 and sys.argv[4]:
+        WindX['EncryptCode_current'] = str(sys.argv[4])
+    print("#AC#",  sys._getframe().f_lineno,"\tEncryptCode_current:", re.sub(r'\w', '*', WindX['EncryptCode_current']))
+
+    WindX['options_files_vals'] = {}
+
+    WindXX['WatchingOptions_opts'] = {
+        'translate_baidu_app_id' :  ['entry', 'encrypt'],
+        'translate_baidu_app_key' : ['entry', 'encrypt'],
+
+        'audio2text_baidu_app_id' :  ['entry', 'encrypt'],
+        'audio2text_baidu_api_key' : ['entry', 'encrypt'],
+        'audio2text_baidu_api_secret_key' : ['entry', 'encrypt'],
+
+        'translate_azure_app_key' :  ['entry', 'encrypt'],
+        'translate_azure_app_region':['entry', 'encrypt'],
+
+        'audio2text_azure_api_speech_key' : ['entry', 'encrypt'],
+        'audio2text_azure_api_speech_region' : ['entry', 'encrypt']    
+    }
+
+def AudioRecordFoleder():
+    opts_file = WindX['self_folder'] + '/AudioTranslator_audio_options.json'
+    if not WindX['self_root_folder']:
+        WindX['self_root_folder'] = WindX['self_folder']
+    
+    try:
+        last_update = 123456
+        if os.path.exists(WindX['self_folder'] + '/AudioTranslator_audio_options.json'):
+                os.chdir(WindX['self_folder'])
+                try:
+                    #fsize = os.path.getsize(f)  #when the file path is deep and every long, will get error and fail to get file size 
+                    last_update = os.path.getmtime('AudioTranslator_audio_options.json')
+                except:
+                    print("#AC#",  sys._getframe().f_lineno,"\n",sys._getframe().f_lineno, traceback.format_exc())
+
+        if WindX['audio_options.json_last_update'] == last_update:
+            return        
+        WindX['audio_options.json_last_update'] = last_update
+
+        vals = UT_JsonFileRead(filepath=opts_file)
+        if vals and vals.__contains__('custom') and vals['custom'].__contains__('self_root_folder') and vals['custom']['self_root_folder'] and os.path.exists(vals['custom']['self_root_folder']):
+            WindX['self_root_folder'] = re.sub(r'\/+Records$|\/+\s*$', '', vals['custom']['self_root_folder'], flags=re.I)
+            sys.path.append(WindX['self_root_folder'])
+            print("\n#AC", sys._getframe().f_lineno,"Records saved in:", WindX['self_root_folder'], "\n")
+
+        WindX['app_outfolder_recorders'] = WindX['self_root_folder'] + "/Records"
+    except:
+        print("#AC#",  sys._getframe().f_lineno,"\n",sys._getframe().f_lineno, traceback.format_exc())
 
 def AudioToText(filepath="", audio_language='', convert_engine=0, translate_to="", optVals={}):
     if filepath in WindX['AudioToText_Done']:
@@ -128,6 +177,8 @@ def AudioToText(filepath="", audio_language='', convert_engine=0, translate_to="
         AudioToText_Else(filepath, audio_language= audio_language, convert_engine=convert_engine, translate_to=translate_to, optVals=optVals)
 
 def AudioToText_Else(filepath, audio_language='zh-CN', convert_engine=0, translate_to="", optVals={}):
+    return
+
     try:
         to_language = 'zh-CN'
         try:
@@ -166,7 +217,7 @@ def AudioToText_AzureAI(filepath, audio_language='zh-CN', translate_to="", optVa
             ", translate_to=", translate_to
         )
 
-        audio_languages = re.split(r'\s+', audio_language)
+        audio_languages = re.split(r'\s+', str(audio_language))
         audio_language  = audio_languages[0]
         translate_tos = re.split(r'\s+', translate_to)
         translate_to  = translate_tos[0]
@@ -341,6 +392,23 @@ def Translate_AzureAI(instring, from_lang, to_lang, optVals={}):
         print("#AC#",  sys._getframe().f_lineno,"\n", traceback.format_exc())
         return []
 
+def api_connect_BaiDu(optVals={}):
+    #https://ai.baidu.com/ai-doc/SPEECH/pk4o0bkx8
+    hasValidKey = 0
+
+    #print("#AC#",  sys._getframe().f_lineno,"api_connect_BaiDu optVals=", optVals)
+    for s in ['audio2text_baidu_app_id', 'audio2text_baidu_api_key','audio2text_baidu_api_secret_key']:
+        if (optVals.__contains__(s) and optVals[s]):
+            hasValidKey += 1
+    if hasValidKey < 3:
+        print("\n",sys._getframe().f_lineno, "audio2text_baidu_app or key or secret_key is not valid!!")
+        return
+
+    baidu_app_id = optVals['audio2text_baidu_app_id'] 
+    baidu_api_key= optVals['audio2text_baidu_api_key']
+    baidu_api_secret_key = optVals['audio2text_baidu_api_secret_key']
+    WindX['baidu_api_client'] = AipSpeech(baidu_app_id, baidu_api_key, baidu_api_secret_key)
+
 def AudioToText_Baidu(filepath, audio_language='1537',translate_to="", optVals={}):
     try:
         print("\n#AC#",  sys._getframe().f_lineno, 
@@ -359,7 +427,7 @@ def AudioToText_Baidu(filepath, audio_language='1537',translate_to="", optVals={
             audio_languageX = "1537-ZH"
 
         if not WindX['baidu_api_client']:
-            api_connect(optVals)
+            api_connect_BaiDu(optVals)
     
         fsize = os.path.getsize(filepath)
                
@@ -483,19 +551,96 @@ def Translate_Baidu(query, audio_language, translate_to, filepath, optVals={}):
     else:
         return ""
 
+def SocketInputGet():
+    print("\n#AC#", sys._getframe().f_lineno, "Listening socket ... ...")
+    try:
+        print("#AC# host name=" + str(socket.gethostname()))
+        proc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        proc.bind(('127.0.0.1', 8181))
+        proc.listen(5)      
+        while True:
+            conn, addr = proc.accept()
+            data = conn.recv(1024).decode()
+            #print("#AC# received data:", data)   #[to_language, audio_file_format, convert_engine, EncryptCode_current]
+            conn.sendall("THANK YOU!".encode(encoding='UTF-8',errors='ignore'))
+            if re.match(r'.*88', data, re.I):
+                conn.close()
+                break
+            elif data:
+                conn.close()
+
+                print("\n")
+                to_language, audio_file_format, convert_engine, EncryptCode_current = re.split(r'\s*\,\s*', data)                
+                if len(convert_engine):
+                    WindX['convert_engine'] = UT_Str2Int(convert_engine)
+                elif not WindX['convert_engine']:
+                    WindX['convert_engine'] = 1
+                print("#AC#",  sys._getframe().f_lineno,"\tConvert Engine:", WindX['convert_engine'])
+
+                WindX['AudioToText_to_language'] = ""
+                if WindX['convert_engine'] == 1:
+                    WindX['AudioToText_to_language'] = 1537 #1537 普通话(纯中文识别), 1737 英语
+                    if len(to_language) and to_language in ['1737', '1537']:
+                        WindX['AudioToText_to_language'] = UT_Str2Int(to_language)
+                    print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'], "(1537 普通话(纯中文识别), 1737 英语)")
+                elif len(to_language):
+                    WindX['AudioToText_to_language'] = re.sub(r'___', ' ', to_language)
+                    print("#AC#",  sys._getframe().f_lineno,"\tAudio language:", WindX['AudioToText_to_language'])
+
+                WindX['audio_file_format'] = 'wav'
+                if len(audio_file_format) and audio_file_format in ['wav', 'mp3']:
+                    WindX['audio_file_format'] = audio_file_format
+                print("#AC#",  sys._getframe().f_lineno,"\tAudio file format:", WindX['audio_file_format'])
+
+                WindX['EncryptCode_current'] = ""
+                if  len(EncryptCode_current):
+                    WindX['EncryptCode_current'] = EncryptCode_current
+                print("#AC#",  sys._getframe().f_lineno,"\tEncryptCode_current:", re.sub(r'\w', '*', WindX['EncryptCode_current']))   
+                print("\n")            
+
+        print("#AC# SocketInputGet --- end")
+        proc.close()
+    except:
+        print("#AC#",  sys._getframe().f_lineno, traceback.format_exc())    
+
 def AudioCheckFiles():
+    print("\n#AC#", sys._getframe().f_lineno, "start checking files inside the folder:", WindX['app_outfolder_recorders'], "... ...\n")
+    app_outfolder = WindX['app_outfolder_recorders']
     n = 0
     while True:
+        if not WindX['EncryptCode_current']:
+            #print("#AC#",  sys._getframe().f_lineno,"\n=========================== Encrypt code is not valid!! ===========================\n")
+            #sys.exit(0)
+            print("\n#AC#",  sys._getframe().f_lineno, "waiting for socket message ... ...\n")
+            time.sleep(1)
+            k = 0
+            while not WindX['EncryptCode_current']:    
+                k +=1
+                WindX['main'].title(WindX['main_title'] + " | Waiting for socket message ... ("+ str(k)+")")    
+                time.sleep(1)
+
+            WindX['main'].title(WindX['main_title'])
+
+        if not WindX['main']:
+            print("\n#AC#", sys._getframe().f_lineno, "stop to close !!!\n")
+            break
+
         n +=1
+        #print("#AC#", sys._getframe().f_lineno, n)
         try:
-            if os.path.exists(app_outfolder_recorders):
-                os.chdir(app_outfolder_recorders)
+            AudioRecordFoleder()
+            if not (app_outfolder == WindX['app_outfolder_recorders']):
+                print("\n#AC#", sys._getframe().f_lineno, "start checking files inside the folder:", WindX['app_outfolder_recorders'], "... ...\n")
+                app_outfolder = WindX['app_outfolder_recorders']
+
+            if os.path.exists(WindX['app_outfolder_recorders']):
+                os.chdir(WindX['app_outfolder_recorders'])
                 
                 files = glob.glob("*")                
                 for f in sorted(files): 
-                    if re.match(r'^Audio\.\d+', f, re.I) and os.path.isdir(app_outfolder_recorders + "/" + f):
+                    if re.match(r'^Audio\.\d+', f, re.I) and os.path.isdir(WindX['app_outfolder_recorders'] + "/" + f):
                         #print("#AC#",  sys._getframe().f_lineno,"\n#" + str(n), f)
-                        os.chdir(app_outfolder_recorders + "/" + f)
+                        os.chdir(WindX['app_outfolder_recorders'] + "/" + f)
 
                         audio_file_format = WindX['audio_file_format']
                         audio_language = WindX['AudioToText_to_language']
@@ -503,7 +648,7 @@ def AudioCheckFiles():
                         translate_to   = ""
                         vals = {}
 
-                        opts_file = app_outfolder_recorders + "/" + f + '/audio_options.json'
+                        opts_file = WindX['app_outfolder_recorders'] + "/" + f + '/audio_options.json'
                         if os.path.exists(opts_file):
                             
                             if WindX['options_files_vals'].__contains__(f):
@@ -514,6 +659,9 @@ def AudioCheckFiles():
                             #print("#AC#",  sys._getframe().f_lineno,vals)
 
                             if vals and vals.__contains__('custom'):
+                                if vals['custom'].__contains__('convert_engine') and vals['custom']['convert_engine']: 
+                                    convert_engine = UT_Str2Int(vals['custom']['convert_engine']) 
+
                                 if vals['custom'].__contains__('audio_file_format') and vals['custom']['audio_file_format']: 
                                     audio_file_format = vals['custom']['audio_file_format']   
 
@@ -523,9 +671,6 @@ def AudioCheckFiles():
                                     else:
                                         audio_language = vals['custom']['convert_to_language']                                     
 
-                                if vals['custom'].__contains__('convert_engine') and vals['custom']['convert_engine']: 
-                                    convert_engine = UT_Str2Int(vals['custom']['convert_engine']) 
-                                
                                 if vals['custom'].__contains__('translate_to') and vals['custom']['translate_to']: 
                                     translate_to = vals['custom']['translate_to']
                             else:
@@ -546,23 +691,25 @@ def AudioCheckFiles():
                         
                         if not convert_engine == 1:
                             audio_language = re.split(r'\s+', str(audio_language))[0]
-                            audio_language = UT_Str2Int(audio_language)
                             #print("#AC#",  sys._getframe().f_lineno, "audio_language=", audio_language)
 
                         for fmpx in sorted(glob.glob("*." + audio_file_format)):                            
-                            if not (os.path.exists(fmpx + '.txt.done') or os.path.exists(fmpx + '.txt') or os.path.exists(fmpx + '.err') or os.path.exists(fmpx + '.warn')):
+                            if not (os.path.exists(fmpx + '.txt.done') or os.path.exists(fmpx + '.txt') or os.path.exists(fmpx + '.err') or os.path.exists(fmpx + '.warn')):                                
                                 #print("#AC#",  sys._getframe().f_lineno,"\t", fmpx)
-                                if convert_engine == 4:
-                                    print("#AC#",  sys._getframe().f_lineno, "convert_engine=", convert_engine, " - not convert!")
+                                if convert_engine == 4:                                    
+                                    #print("#AC#",  sys._getframe().f_lineno, "convert_engine=", convert_engine, " - not convert!")
                                     UT_FileSave('This audio is not required to be converted to text!', fmpx + '.warn', format="strings")
                                 else:
+                                    n = 0
                                     AudioToText(filepath=fmpx, audio_language=audio_language, convert_engine=convert_engine, translate_to=translate_to, optVals=vals['custom'])    
         except:
             print("#AC#",  sys._getframe().f_lineno, traceback.format_exc())
 
-        if n== 0 or n % 50 == 0:
+        if n== 1 or n % 50 == 0:            
             print('.', end='')
             sys.stdout.flush()
+        
+        WindX['main'].title(WindX['main_title'] + " ("+ str(n)+")")
         time.sleep(0.5)
 
 # Generate salt and sign
@@ -591,12 +738,27 @@ def tmp():
         #UT_JsonFileSave(WindX['self_folder'] + "/AudioTranslator/ui_languages.json", fdata=ui_lang)
 
 def main():
+    UI_AT_Close("AC")
+    init()
+
+    WindX['main_title'] = "AT-Convertor " + str(time.time())
+    WindX['main'] = Tk()
+    WindX['main'].title(WindX['main_title'])
+    WindX['main'].geometry('500x30+0+0')
+    WindX['main'].protocol("WM_DELETE_WINDOW", WindExit)
+    WindX['main'].iconify()
+
     t1 = threading.Timer(0.1, AudioCheckFiles)
     t1.start()
+    t2 = threading.Timer(0.1, SocketInputGet)
+    t2.start()
+    
+    mainloop()
 
 def WindExit(): 
     if WindX['main']:                     
         WindX['main'].destroy()
+    WindX['main'] = None
     os._exit(0)
     #sys.exit(0)  # This will cause the window error: Python has stopped working ...
 

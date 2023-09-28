@@ -43,6 +43,29 @@
                 ""
             ]
         ],
+        "ms_languages_selected": [
+            "entry",
+            "",
+            "",
+            [
+                "de",
+                "en",
+                "fr",
+                "ja",
+                "ko",
+                "pt",
+                "ru",
+                "zh"
+            ],
+            ""
+        ],
+        "self_root_folder": [
+            "entry",
+            "",
+            "\u8bb0\u5f55\u4fdd\u5b58\u4e8e",
+            "\u4fdd\u5b58\u8bed\u97f3\u8bb0\u5f55\u7684\u6587\u4ef6\u5939/Records",
+            ""
+        ],
         "frames_per_buffer": [
             "selectbox",
             1024,
@@ -211,9 +234,11 @@
     },
     "custom": {
         "ui_language": "CN - \u7b80\u4f53\u4e2d\u6587",
-        "convert_engine": "1 - \u767e\u5ea6",
-        "convert_to_language": "1537 - \u7b80\u4f53\u4e2d\u6587",
-        "translate_to": "\u82f1\u8bed (English)",
+        "convert_engine": "3 - \u5fae\u8f6f",
+        "convert_to_language": "zh-CN \u4e2d\u6587\uff08\u666e\u901a\u8bdd\uff0c\u7b80\u4f53\uff09",
+        "translate_to": "en \u82f1\u8bed",
+        "ms_languages_selected": "de, en, fr, ja, zh",
+        "self_root_folder": "T:/AT-Recorders",
         "frames_per_buffer": "1024",
         "channels": "1 - mono",
         "format": 16,
