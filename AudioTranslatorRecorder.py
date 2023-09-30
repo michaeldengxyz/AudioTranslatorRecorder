@@ -49,6 +49,7 @@ if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_opt
 sys.path.append(self_folder)
 #------------------------------
 
+import random, string
 from tkinter import *
 from tkinter import filedialog,ttk,messagebox
 
@@ -81,10 +82,12 @@ WindXX = {}
 WindX['self_folder'] = self_folder
 WindX['self_sys_argv0'] = self_sys_argv0
 
+WindX['main_rev'] = '1.5'
 def Revisons():
     WindX['main_rev_list'] ={
         '1.3': "initiation",
-        '1.4': "add new functions"
+        '1.4': "add new functions",
+        '1.5': "change encrypt code verification method"
     }
 
 def init():
@@ -99,7 +102,7 @@ def init():
     WindX['ms_languages_selected_default'] = ['de', 'fr', 'en', 'ja', 'ko', 'pt', 'ru', 'zh']
     #The folder self_root_folder contains:
     #---- Records (folder to save all audio records)
-    
+     
     WindX['self_root_folder'] = WindX['self_folder']
     vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
     if vals and vals.__contains__('custom'):
@@ -119,7 +122,6 @@ def init():
     #print(sys._getframe().f_lineno,"\n", os.path.dirname(WindX['app_ui_languages']))
     #print(sys._getframe().f_lineno,os.path.basename(WindX['app_ui_languages']), "\n")
 
-    WindX['main_rev'] = '1.4'
     WindX['main'] = None
     WindX['mainPX'] = 20
     WindX['mainPY'] = 20
@@ -1047,10 +1049,9 @@ def UI_EncryptCode_Check():
     vals = UT_JsonFileRead(filepath= WindX['app_watching_options_file'])
     if vals and vals.__contains__('custom') and WindX['EncryptCode_current']:
         if vals['custom'].__contains__('EncryptCode_MD5_VerifyCode') and vals['custom']['EncryptCode_MD5_VerifyCode']:
-            VerifyCode = UT_MD5_VerifyCode(WindX['EncryptCode_current'])
-            print(sys._getframe().f_lineno, "VerifyCode:", VerifyCode, vals['custom']['EncryptCode_MD5_VerifyCode'])
-
-            if not (vals['custom']['EncryptCode_MD5_VerifyCode'] == VerifyCode):
+            tmp_str = UT_CryptMe(vals['custom']['EncryptCode_MD5_VerifyCode'].encode(),key=UT_GetMD5(WindX['EncryptCode_current']), isEncript=False)
+            print(sys._getframe().f_lineno, "VerifyCode:", tmp_str)
+            if not tmp_str:
                 go = messagebox.askyesno(title=GUI_LANG(70), message= GUI_LANG(87))
                 if go:
                     #check encrypted field values
@@ -1675,8 +1676,9 @@ class recordAudio:
                 print(sys._getframe().f_lineno,"\t...", s, ":", val, "-->", val_e, "-->", val_e.encode(),"-->",  UT_CryptMe(val_e.encode(),key=UT_GetMD5(WindX['EncryptCode_current']), isEncript=False))
                 vals[s] = "$$" + val_e
 
-        vals['EncryptCode_MD5_VerifyCode'] = UT_MD5_VerifyCode(WindX['EncryptCode_current'])
-        print(sys._getframe().f_lineno,"\t... MD5_VerifyCode", vals['EncryptCode_MD5_VerifyCode'])
+        tmp_str = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(60))
+        vals['EncryptCode_MD5_VerifyCode'] = re.sub(r'^b(\'|\")|(\'|\")$', '', str(UT_CryptMe(tmp_str, key=UT_GetMD5(WindX['EncryptCode_current']), isEncript=True)))
+        print(sys._getframe().f_lineno,"\t... VerifyCode", vals['EncryptCode_MD5_VerifyCode'])
 
         #selectbox
         self.convert_engine =  int(re.sub(r'[^\d\.]+', '', vals['convert_engine']))

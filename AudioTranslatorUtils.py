@@ -18,6 +18,7 @@ import zlib
 import base64
 from Crypto.Cipher import AES
 import pygetwindow
+import webbrowser
 
 from colorama import init
 init(autoreset=True) #set this True to print color fonts in the console
@@ -101,12 +102,12 @@ def UT_HandlerAdaptor(fun,**kwds):
             pass
     """
     return lambda event,fun=fun,kwds=kwds:fun(event,**kwds) 
-import webbrowser
+
 def UT_OpenLink(event=None, link=None):
     UT_Print2Log('blue', "\n#AU#", sys._getframe().f_lineno,'... open link: ' + link)
     webbrowser.open_new_tab(link)
 
-def UT_CryptMe(instring,key=None,isEncript=True):    
+def UT_CryptMe(instring,key=None,isEncript=True,dataType='str'):    
     #CryptMe    
     #fdata['string'] = 'ILOVEU'
     #fdata['key']    = 'DF11-FB15-B7B2-15AB-47B7-7AC4-C6F9-5EFE'
@@ -123,38 +124,47 @@ def UT_CryptMe(instring,key=None,isEncript=True):
     fdata['sizeZ']= 0
     fdata['rateC']= 'NA'
     fdata['key'] = key
-    fdata['data'] = ''
+    fdata['data'] = None
     try:
+        pdata = None
         if isEncript:
-            #UT_Print2Log('', "#AU#", "\n\t.. Encrypt ..."); 
-            data_tmp = zlib.compress(fdata['string'].encode(encoding='UTF-8',errors='ignore'))       
-            if(data_tmp):         
-                ckey = re.sub(r'-','',fdata['key']); 
-                #UT_Print2Log('',  "#AU#","\t\tEncrypted:\n\t\t-- KEY: "+ fdata['key']) 
+            #UT_Print2Log('', "\n\t.. Encrypt ...");             
+            if dataType=='str':
+                pdata = zlib.compress(fdata['string'].encode(encoding='UTF-8',errors='ignore')) 
+            else: #if dataType == 'bytes':
+                pdata = zlib.compress(fdata['string'])
 
-                cryptor = AES.new(ckey.encode('utf-8'),AES.MODE_CBC,str(ckey[0:16]).encode('utf-8'))                       
-                fdata['data'] = base64.b64encode(cryptor.encrypt(UT_PadText(data_tmp))); 
+            if pdata:         
+                ckey = re.sub(r'-','',fdata['key']); 
+                #UT_Print2Log('', "\t\tEncrypted:\n\t\t-- KEY: "+ fdata['key']) 
+
+                cryptor = AES.new(ckey.encode('utf-8'),AES.MODE_CBC,str(ckey[0:16]).encode('utf-8'))
+                fdata['data'] = base64.b64encode(cryptor.encrypt(UT_PadText(pdata))); 
                 
-                #UT_Print2Log('',  "#AU#","\t\t-- KEYSIZE: "+str(len(ckey))+"\n\t\t-- BLOCKSIZE: "+str(AES.block_size)+"\n\t\t-- IV: "+ckey[0:16])
+                #UT_Print2Log('', "\t\t-- KEYSIZE: "+str(len(ckey))+"\n\t\t-- BLOCKSIZE: "+str(AES.block_size)+"\n\t\t-- IV: "+ckey[0:16])
             
                 fdata['sizeZ']= len(fdata['data'])
                 if(fdata['sizeZ']):
                     fdata['rateC'] = "{:0.2f}".format(fdata['size']/fdata['sizeZ'])
             else:
-                UT_Print2Log('red',  "#AU#", sys._getframe().f_lineno, "\t.. Failed to compress!\n")        
+                UT_Print2Log('red', sys._getframe().f_lineno, "\t.. Failed to compress!\n")        
             
-            #UT_Print2Log('',  "#AU#", "\t.. Compressed: before size="+str(fdata['size'])+" "+unit+", after size="+str(fdata['sizeZ'])+", compressed rate "+str(fdata['rateC'])+"\n") dhkaads
+            #UT_Print2Log('', "\t.. Compressed: before size="+str(fdata['size'])+" "+unit+", after size="+str(fdata['sizeZ'])+", compressed rate "+str(fdata['rateC'])+"\n") dhkaads
         else:
-            #UT_Print2Log('',  "#AU#", "\n\t.. Decrypt ..."); 
+            #UT_Print2Log('', "\n\t.. Decrypt ..."); 
             ckey = re.sub(r'-','',fdata['key']); 
             cryptor = AES.new(ckey.encode('utf-8'),AES.MODE_CBC,str(ckey[0:16]).encode('utf-8'))  
-            data_tmp = cryptor.decrypt(base64.b64decode(fdata['string'])); 
-            fdata['data'] = zlib.decompress(data_tmp).decode(encoding='UTF-8',errors='ignore') 
+            pdata = cryptor.decrypt(base64.b64decode(fdata['string'])); 
+            if dataType=='str':
+                fdata['data'] = zlib.decompress(pdata).decode(encoding='UTF-8',errors='ignore')
+            else: #if dataType == 'bytes':
+                fdata['data'] = zlib.decompress(pdata)
     except:
-        UT_Print2Log('red', "#AU#", sys._getframe().f_lineno, traceback.format_exc())
+        UT_Print2Log('red', sys._getframe().f_lineno, traceback.format_exc()) 
 
     #UT_Print2Log('', 'In: ',instring,'\nout: ',fdata['data'],'\n')
     return fdata['data']
+
 
 def UT_PadText(s):
     '''Pad an input string according to PKCS#7''' #
