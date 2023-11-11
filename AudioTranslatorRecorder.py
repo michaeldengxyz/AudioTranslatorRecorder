@@ -44,6 +44,7 @@ if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_opt
 
 print("\n#AR", sys._getframe().f_lineno,"root:", self_folder, "\n")
 if not (self_folder and os.path.exists(self_folder + '/AudioTranslator_audio_options.json')):
+    print(sys._getframe().f_lineno, "File missing:", self_folder + '/AudioTranslator_audio_options.json')
     print(sys._getframe().f_lineno,"\n=========================== Failed to find root path!! ===========================\n")
     os._exit(0)
 sys.path.append(self_folder)
@@ -118,6 +119,14 @@ def init():
     if not os.path.exists(WindX['app_outfolder_recorders']):
         print(sys._getframe().f_lineno,"create dir:", WindX['app_outfolder_recorders'])
         os.makedirs(WindX['app_outfolder_recorders'])
+
+        if not os.path.exists(WindX['app_outfolder_recorders']):
+            user_home = re.sub(r'\\','/', os.path.expanduser('~'))
+            if user_home and re.match(r'[a-z]+', user_home, re.I):
+                tmp_folder = re.sub(r'\\','/', os.path.join(user_home, 'Downloads/AT-Records'))
+                os.makedirs(tmp_folder)
+                if os.path.exists(tmp_folder):
+                    WindX['app_outfolder_recorders'] = tmp_folder
 
     #print(sys._getframe().f_lineno,"\n", os.path.dirname(WindX['app_ui_languages']))
     #print(sys._getframe().f_lineno,os.path.basename(WindX['app_ui_languages']), "\n")
@@ -1221,7 +1230,9 @@ def AudioRecordLoadHistory(event=None):
     #fpath = filedialog.askdirectory(initialdir = WindX['app_outfolder_recorders'])
     #if fpath:
     #    print(sys._getframe().f_lineno,"\nAudioRecordLoadHistory:", re.sub(r'\\','/',fpath))
-
+    if not UI_EncryptCode_Check():
+        return
+    
     filepath = filedialog.askopenfilename(
                 filetypes= [('audio_info', '.jsonx')], 
                 defaultextension='.jsonx',
@@ -1590,6 +1601,7 @@ class recordAudio:
         self.history_file = ""
         self.outfoldertmp = "" 
 
+        self.PyAudio = None
         if self.load_history or self.go_to_page:
             self.history_file = history_file
             self.outfoldertmp = os.path.dirname(history_file)
@@ -1599,6 +1611,8 @@ class recordAudio:
             self.audio_info_outfile = self.outfoldertmp  + "/audio_info.jsonx"
             self.audio_watching_options_file = WindX['app_watching_options_file']
             self.audio_watching_options_file_this_record = self.outfoldertmp + '/audio_options.json'
+
+            self.PyAudio = pyaudio.PyAudio()  #DO call here for multiple threads!!! 
     
             if not os.path.exists(self.outfoldertmp):  
                 os.makedirs(self.outfoldertmp)
@@ -1802,6 +1816,11 @@ class recordAudio:
                     
                     for i in range(len(threads)):
                         threads[i].start()
+
+                    #can not lock the threads!!!!!!
+                    #for t in range(len(threads)):
+                    #    threads[i].join()
+                    #self.PyAudio.terminate() 
                 else:
                     messagebox.showwarning(title= GUI_LANG(70), message= GUI_LANG(68))
                     AudioRecord()
@@ -1859,9 +1878,11 @@ class recordAudio:
     def record_audio(self, device_index = 0, main_thread=False):
         try:
             stime = time.time()
-            p = pyaudio.PyAudio()       
+             
+            #p = pyaudio.PyAudio()    #DO NOT call here for multiple threads!!! 
+            p = self.PyAudio      
             print(sys._getframe().f_lineno,GUI_LANG(71) + str(device_index) + GUI_LANG(72), p.get_device_info_by_index(device_index),"\n")
-
+            
             stream = p.open(
                 format  = self.format,  # 音频流wav格式
                 channels= self.channels,  # 声道
@@ -1881,6 +1902,8 @@ class recordAudio:
             WindX['audio_visualizationGo_PointData'][data_index] = []
 
             self.sampwidth = p.get_sample_size(self.format)
+            print("\nformat {}, channels {}, rate {}, frames_per_buffer {}, sampwidth {}".format(self.format, self.channels, self.rate, self.frames_per_buffer, self.sampwidth))
+
             all_frames = []
             half_second_cycles = int(0.5*(self.rate/self.frames_per_buffer))
 
@@ -1955,7 +1978,7 @@ class recordAudio:
             # 录制完成
             stream.stop_stream()
             stream.close()
-            p.terminate()
+            #p.terminate()   #DO NOT call here for multiple threads!!! 
 
             if has_signal_k and len(all_frames):
                 self.audio_save_to_file(self.outfile_audio + '-' + str(device_index) + '_00all.' + WindX['audio_file_format'], all_frames, toprint=True)
@@ -2609,8 +2632,10 @@ class recordAudio:
         #    print(sys._getframe().f_lineno,x)
 
         self.audio_load_sections(vals_rows, vals)
-        t = threading.Timer(0.1,self.audio_conversion_check)
-        t.start()
+        t1 = threading.Timer(0.1, AudioConvertorStart, args=[self.convert_to_language , self.convert_engine])
+        t1.start()
+        t2 = threading.Timer(0.1,self.audio_conversion_check)
+        t2.start()
 
     def audio_load_sections(self, vals_rows, vals):
         if not len(vals_rows):
